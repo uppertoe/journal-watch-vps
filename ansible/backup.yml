@@ -1,0 +1,22 @@
+---
+# backup.yml — Install and configure the database backup system.
+#
+# Prerequisites:
+#   backup/config.env         — copy from backup/config.env.example and fill in
+#   backup/services/*.env     — one file per database (copy from services/service.env.example)
+#
+# Usage:
+#   ansible-playbook -i ansible/hosts scaffold/ansible/backup.yml
+#
+# To run a backup immediately after provisioning:
+#   ssh myserver sudo systemctl start backup.service
+#   ssh myserver journalctl -u backup.service -f
+
+- name: Install database backup system
+  hosts: servers
+  become: true
+
+  roles:
+    - role: scaffold/ansible/roles/backup
+      vars:
+        backup_config_src: "{{ playbook_dir }}/../backup"

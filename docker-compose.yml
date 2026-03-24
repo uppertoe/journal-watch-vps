@@ -1,0 +1,5 @@
+---
+include:
+  - scaffold/docker/caddy.base.yml
+  # Add one line per app:
+  # - apps/myapp/docker-compose.yml
