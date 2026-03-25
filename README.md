@@ -1,31 +1,7 @@
-# server-[name]
+# journal-watch-vps
 
-> Replace this heading with your server name and delete this line.
-
-VPS implementation for `[name]`. Uses [vps-base-template](https://github.com/uppertoe/vps-base-template)
+VPS implementation for journal-watch-vps. Uses [vps-base-template](https://github.com/uppertoe/vps-base-template)
 for infrastructure — Ansible provisioning, hardening, Docker setup, and Caddy base config.
-
----
-
-## Create a new server repo from this template
-
-Do this once per server.
-
-1. On GitHub, open [server-instance-template](https://github.com/uppertoe/server-instance-template)
-   and click **Use this template → Create a new repository**.
-2. Name it `server-[name]` (e.g. `server-mycompany`). Keep it **private**.
-3. Clone it locally — the `scaffold` submodule is included automatically:
-   ```bash
-   git clone --recurse-submodules git@github.com:yourorg/server-[name].git
-   cd server-[name]
-   ```
-4. Edit the repo name in this README, then commit:
-   ```bash
-   git add README.md && git commit -m "chore: name server repo"
-   git push
-   ```
-
-That's it — your server repo is ready. Continue below to provision the server.
 
 ---
 
@@ -78,7 +54,7 @@ Once provisioned, clone the repo **on the server** so Docker Compose can read it
 
 ```bash
 # SSH into the server first, then:
-git clone --recurse-submodules git@github.com:yourorg/server-[name].git /opt/deploy
+git clone --recurse-submodules git@github.com:uppertoe/journal-watchvps.git /opt/deploy
 cd /opt/deploy
 cp .env.example .env && $EDITOR .env
 # Create .env for each app too (see apps/*/env.example)
