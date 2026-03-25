@@ -40,7 +40,7 @@ ansible-playbook -i ansible/hosts scaffold/ansible/bootstrap.yml --ask-pass
 ansible-playbook -i ansible/hosts scaffold/ansible/site.yml
 
 # 6. Smoke test the fresh VPS
-bash scripts/post-provision-smoke-test.sh myserver
+bash scripts/post-provision-smoke-test.sh journal-watch-vps
 ```
 
 This smoke test checks SSH access, sudo, Docker, systemd services, SSH hardening,

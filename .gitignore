@@ -6,3 +6,5 @@ docker-compose.override.yml
 # Backup secrets — never commit real credentials
 backup/config.env
 backup/services/*.env
+
+reports/

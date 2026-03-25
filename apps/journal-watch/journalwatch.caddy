@@ -1,0 +1,9 @@
+  # Journal Watch — main app
+  {$DOMAIN} {                                                                                                                       
+      reverse_proxy jw_django:5000                                                                                                  
+  }
+                                                                                                                                    
+  # Planka — project management                                                      
+  planka.{$DOMAIN} {
+      reverse_proxy jw_planka:1337                                                                                                  
+  }                                                                                                                               
