@@ -1,5 +1,14 @@
   # Journal Watch — main app
-  {$DOMAIN} {                                                                                                                       
+  {$DOMAIN} {                      
+        handle_path /static/* {
+        root * /srv/repo/apps/journalwatch/staticfiles
+
+        @immutable path_regexp immutable ^.+(?:[.-][0-9a-f]{8,64})\..+$
+        header @immutable Cache-Control "public, max-age=315360000, immutable"
+        header Cache-Control "public, max-age=3600"
+
+        file_server
+    }                                                                                                 
       reverse_proxy jw_django:5000                                                                                                  
   }
                                                                                                                                     

@@ -40,7 +40,10 @@
         PLANKA_BASE_URL: http://jw_planka:1337                                                                                      
         PLANKA_DB_URL: postgresql://postgres@jw_planka_postgres/planka
       volumes:                                                                                                                      
-        - jw_access_logs:/app/access_logs                                                                                           
+        - jw_access_logs:/app/access_logs
+        # Host-backed so Caddy can serve collected static files directly from
+        # /srv/repo/apps/journalwatch/staticfiles without going through Django.
+        - ./staticfiles:/app/staticfiles                                                                                      
       networks:
         - caddy                                                                                                                     
         - jw_internal                                                                                                             
