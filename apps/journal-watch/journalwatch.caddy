@@ -5,5 +5,18 @@
                                                                                                                                     
   # Planka — project management                                                      
   planka.{$DOMAIN} {
-      reverse_proxy jw_planka:1337                                                                                                  
+      @custom_cover {
+          path_regexp cover ^/assets/cover-[A-Za-z0-9-]+\.jpg$
+          file /srv/repo/apps/journal-watch/planka/cover-journalwatch.webp
+      }
+
+      handle @custom_cover {
+          root * /srv/repo/apps/journal-watch/planka
+          rewrite * /cover-journalwatch.webp
+          file_server
+      }
+
+      handle {
+          reverse_proxy jw_planka:1337
+      }
   }                                                                                                                               
