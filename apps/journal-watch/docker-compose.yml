@@ -14,6 +14,7 @@
     jw_planka_data: {}
     jw_planka_postgres_data: {}
     jw_access_logs: {}
+    jw_staticfiles: {}
                                                                                                                                     
   services:
                                                                                                                                     
@@ -41,12 +42,14 @@
         PLANKA_DB_URL: postgresql://postgres@jw_planka_postgres/planka
       volumes:                                                                                                                      
         - jw_access_logs:/app/access_logs
-        # Host-backed so Caddy can serve collected static files directly from
-        # /srv/repo/apps/journalwatch/staticfiles without going through Django.
-        - ./staticfiles:/app/staticfiles                                                                                      
+        - jw_staticfiles:/app/staticfiles
       networks:
         - caddy                                                                                                                     
         - jw_internal                                                                                                             
+
+    caddy:
+      volumes:
+        - jw_staticfiles:/srv/static/journal-watch:ro
 
     # ---------------------------------------------------------------------------
     # PostgreSQL (Django)
