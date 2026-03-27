@@ -18,6 +18,7 @@ Reviews and uploaded files are stored securely and backed up regularly. That sai
 
 A coordinator will guide you through the process. If you have any questions at any time, use the Comments section on any card or reach out to your regional coordinator directly.
 
-## [confirmations]::
+[confirmations]::
+---
 
-✔️ **I have read and understand the above**
+✔️ **I have read and accept these End User Terms of Service**
