@@ -5,10 +5,7 @@
                                                                                                                                     
   # Planka — project management                                                      
   planka.{$DOMAIN} {
-      @custom_cover {
-          path_regexp cover ^/assets/cover-[A-Za-z0-9-]+\.jpg$
-          file /srv/repo/apps/journal-watch/planka/cover-journalwatch.webp
-      }
+      @custom_cover path_regexp cover ^/assets/(login-)?cover-[A-Za-z0-9-]+\.jpg$
 
       handle @custom_cover {
           root * /srv/repo/apps/journal-watch/planka
