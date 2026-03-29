@@ -32,9 +32,9 @@
         jw_postgres:                                                                                                                
           condition: service_healthy
         jw_redis:                                                                                                                   
-          condition: service_started                                                                                              
+          condition: service_healthy                                                                                              
         jw_mjml:
-          condition: service_started
+          condition: service_healthy
       env_file: .env
       environment:
         # Docker-internal addresses — always override these here, not in .env
@@ -42,10 +42,22 @@
         POSTGRES_PORT: "5432"
         REDIS_URL: redis://jw_redis:6379/0                                                                                          
         PLANKA_BASE_URL: http://jw_planka:1337                                                                                      
-        PLANKA_DB_URL: postgresql://postgres@jw_planka_postgres/planka
+        PLANKA_DB_URL: postgresql://postgres:${PLANKA_POSTGRES_PASSWORD}@jw_planka_postgres/planka
       volumes:                                                                                                                      
         - jw_access_logs:/app/access_logs
         - jw_staticfiles:/app/staticfiles
+      healthcheck:
+        test:
+          [
+            "CMD",
+            "python",
+            "-c",
+            "import urllib.request; urllib.request.urlopen('http://127.0.0.1:5000/healthz', timeout=5)",
+          ]
+        interval: 30s
+        timeout: 5s
+        retries: 5
+        start_period: 60s
       networks:
         - caddy                                                                                                                     
         - jw_internal                                                                                                             
@@ -71,7 +83,7 @@
         - "127.0.0.1:5432:5432"                                                                                                     
       healthcheck:                                                                                                                  
         test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-spanza_journal_watch}"]                     
-        interval: 10s                                                                                                               
+        interval: 30s                                                                                                               
         timeout: 5s
         retries: 5                                                                                                                  
       networks:                                                                                                                     
@@ -86,6 +98,12 @@
       mem_limit: 128m
       oom_score_adj: 300
       pids_limit: 64
+      healthcheck:
+        test: ["CMD", "redis-cli", "ping"]
+        interval: 30s
+        timeout: 5s
+        retries: 5
+        start_period: 10s
       networks:
         - jw_internal
 
@@ -99,6 +117,18 @@
       oom_score_adj: 400
       pids_limit: 64
       command: ["--mjml.minify=true", "--mjml.validationLevel=strict"]
+      healthcheck:
+        test:
+          [
+            "CMD",
+            "node",
+            "-e",
+            "const net=require('net'); const socket=net.connect({host:'127.0.0.1',port:28101},()=>{socket.end(); process.exit(0)}); socket.on('error',()=>process.exit(1)); setTimeout(()=>process.exit(1),5000);",
+          ]
+        interval: 30s
+        timeout: 5s
+        retries: 5
+        start_period: 10s
       networks:                                                                                                                     
         - jw_internal                                                                                                             
                                                                                                                                     
@@ -141,7 +171,7 @@
           condition: service_healthy
       env_file: .env
       environment:                                                                                                                  
-        DATABASE_URL: postgresql://postgres@jw_planka_postgres/planka
+        DATABASE_URL: postgresql://postgres:${PLANKA_POSTGRES_PASSWORD}@jw_planka_postgres/planka
         # OIDC issuer is the public Django URL — read from .env                                                                     
         OIDC_ISSUER: ${OIDC_ISS_ENDPOINT}                                                                                           
         DEFAULT_ADMIN_EMAIL: ${PLANKA_ADMIN_EMAIL}
@@ -152,6 +182,18 @@
         S3_FORCE_PATH_STYLE: "false"
       volumes:                                                                                                                      
         - ./planka/custom:/app/terms/custom:ro                                                                                    
+      healthcheck:
+        test:
+          [
+            "CMD",
+            "node",
+            "-e",
+            "const http=require('http'); const req=http.get('http://127.0.0.1:1337/', (res)=>{process.exit(res.statusCode === 200 ? 0 : 1)}); req.on('error',()=>process.exit(1)); req.setTimeout(5000,()=>{req.destroy(); process.exit(1)});",
+          ]
+        interval: 30s
+        timeout: 5s
+        retries: 5
+        start_period: 30s
       networks:                                                                                                                     
         - caddy
         - jw_internal                                                                                                               
@@ -166,15 +208,15 @@
       pids_limit: 128
       environment:
         POSTGRES_DB: planka
-        POSTGRES_HOST_AUTH_METHOD: trust
+        POSTGRES_PASSWORD: ${PLANKA_POSTGRES_PASSWORD}
       volumes:
         - jw_planka_postgres_data:/var/lib/postgresql/data                                                                          
       # Port 5433 avoids conflict with Django postgres on 5432
       ports:                                                                                                                        
         - "127.0.0.1:5433:5432"                                                                                                   
       healthcheck:                                                                                                                  
-        test: ["CMD-SHELL", "pg_isready -U postgres -d planka"]                                                                   
-        interval: 10s                                                                                                               
+        test: ["CMD-SHELL", "PGPASSWORD=$${POSTGRES_PASSWORD} pg_isready -U postgres -d planka"]                                                                   
+        interval: 30s                                                                                                               
         timeout: 5s                                                                                                               
         retries: 5
       networks:
