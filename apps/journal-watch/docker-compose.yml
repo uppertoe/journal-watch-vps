@@ -43,6 +43,9 @@
         REDIS_URL: redis://jw_redis:6379/0                                                                                          
         PLANKA_BASE_URL: http://jw_planka:1337                                                                                      
         PLANKA_DB_URL: postgresql://postgres:${PLANKA_POSTGRES_PASSWORD}@jw_planka_postgres/planka
+        AWS_ACCESS_KEY_ID: ${DJANGO_AWS_ACCESS_KEY_ID}
+        AWS_SECRET_ACCESS_KEY: ${DJANGO_AWS_SECRET_ACCESS_KEY}
+        AWS_DEFAULT_REGION: ${DJANGO_AWS_DEFAULT_REGION}
       volumes:                                                                                                                      
         - jw_access_logs:/app/access_logs
         - jw_staticfiles:/app/staticfiles
