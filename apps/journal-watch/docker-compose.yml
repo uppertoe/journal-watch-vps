@@ -145,6 +145,8 @@
       command: /start-celeryworker                                                                                                                                                                                                     
       mem_reservation: 192m
       oom_score_adj: -100
+      healthcheck:
+        disable: true
       volumes:
         - jw_access_logs:/app/access_logs
         - jw_staticfiles:/app/staticfiles
@@ -158,6 +160,8 @@
       mem_limit: 128m
       oom_score_adj: 350
       pids_limit: 64
+      healthcheck:
+        disable: true
       volumes:                                                                                                                      
         - jw_access_logs:/app/access_logs
       networks:                                                                                                                     
