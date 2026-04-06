@@ -43,7 +43,7 @@
         REDIS_URL: redis://jw_redis:6379/0                                                                                          
         PLANKA_BASE_URL: http://jw_planka:1337                                                                                      
         PLANKA_DB_URL: postgresql://postgres:${PLANKA_POSTGRES_PASSWORD}@jw_planka_postgres/planka
-        PLANKA_CALLBACK_BASE_URL: "http://jw_django:5000"
+        PLANKA_CALLBACK_BASE_URL: "http://jw-django:5000"
         AWS_ACCESS_KEY_ID: ${DJANGO_AWS_ACCESS_KEY_ID}
         AWS_SECRET_ACCESS_KEY: ${DJANGO_AWS_SECRET_ACCESS_KEY}
         AWS_DEFAULT_REGION: ${DJANGO_AWS_DEFAULT_REGION}
@@ -64,7 +64,9 @@
         start_period: 60s
       networks:
         - caddy                                                                                                                     
-        - jw_internal                                                                                                             
+        - jw_internal:                                                                                                                          
+            aliases:                                                                                                                                    
+              - jw-django                                                                                                             
 
     caddy:
       volumes:
