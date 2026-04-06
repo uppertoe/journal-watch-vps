@@ -215,6 +215,7 @@
         S3_SECRET_ACCESS_KEY: ${PLANKA_S3_SECRET_ACCESS_KEY}                                                                        
         S3_BUCKET: ${PLANKA_S3_BUCKET}                                                                                
         S3_FORCE_PATH_STYLE: "false"
+        PLANKA_CALLBACK_BASE_URL: "http://jw_django:5000"
       volumes:                                                                                                                      
         - ./planka/custom:/app/terms/custom:ro                                                                                    
       healthcheck:
