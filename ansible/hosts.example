@@ -1,8 +1,11 @@
 # Copy to ansible/hosts (gitignored) and set your server's IP.
+# Replace "myserver" with your own SSH alias, and use that same alias in
+# ~/.ssh/config, Ansible commands, and the smoke test script.
 #
 # Usage:
 #   ansible-playbook -i ansible/hosts scaffold/ansible/bootstrap.yml
-#   ansible-playbook -i ansible/hosts scaffold/ansible/site.yml
+#   ansible-playbook -i ansible/hosts scaffold/ansible/site-first-run.yml
+#   ansible-playbook -i ansible/hosts scaffold/ansible/site-quick.yml
 
 [servers]
 myserver ansible_host=YOUR_SERVER_IP
@@ -11,3 +14,7 @@ myserver ansible_host=YOUR_SERVER_IP
 ansible_user=deploy
 # Bootstrap copies the matching .pub for this key onto the server.
 ansible_ssh_private_key_file=~/.ssh/id_ed25519
+ansible_python_interpreter=/usr/bin/python3
+# Backups run hourly by default; set verify to an explicit off-hour time so
+# weekly prune/check work is less likely to overlap with a normal backup.
+# backup_verify_schedule=Sun *-*-* 03:17:00
