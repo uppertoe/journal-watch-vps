@@ -63,10 +63,10 @@
         retries: 5
         start_period: 60s
       networks:
-        - caddy                                                                                                                     
-        - jw_internal:                                                                                                                          
-            aliases:                                                                                                                                    
-              - jw-django                                                                                                             
+        caddy:
+        jw_internal:
+          aliases:
+            - jw-django
 
     caddy:
       volumes:
