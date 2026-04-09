@@ -58,6 +58,8 @@ git clone --recurse-submodules git@github.com:uppertoe/journal-watchvps.git /opt
 cd /opt/deploy
 cp .env.example .env && $EDITOR .env
 # Create .env for each app too (see apps/*/env.example)
+# For Journal Watch, you can prefill missing secret values safely with:
+# python3 scripts/generate_journal_watch_env.py
 docker compose up -d
 ```
 
