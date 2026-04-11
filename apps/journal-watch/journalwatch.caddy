@@ -1,35 +1,41 @@
-  # Journal Watch — main app
-  {$DOMAIN} {                      
-      handle_path /static/* {
-        root * /srv/static/journal-watch
+# Journal Watch — main app
+{$DOMAIN} {
+    # Security headers                                                                                                                 
+    header {                                              
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"                                                                  
+        -Server                                           
+    }
 
-        @immutable path_regexp immutable ^.+(?:[.-][0-9a-f]{8,64})\..+$
-        @nonimmutable not path_regexp immutable ^.+(?:[.-][0-9a-f]{8,64})\..+$
+    handle_path /static/* {
+    root * /srv/static/journal-watch
 
-        header @immutable Cache-Control "public, max-age=31536000, immutable"
-        header @nonimmutable Cache-Control "public, max-age=3600"
+    @immutable path_regexp immutable ^.+(?:[.-][0-9a-f]{8,64})\..+$
+    @nonimmutable not path_regexp immutable ^.+(?:[.-][0-9a-f]{8,64})\..+$
 
-        file_server
-      }                                                                                                 
-      reverse_proxy jw_django:5000                                                                                                  
-  }
+    header @immutable Cache-Control "public, max-age=31536000, immutable"
+    header @nonimmutable Cache-Control "public, max-age=3600"
+
+    file_server
+    }                                                                                                 
+    reverse_proxy jw_django:5000                                                                                                  
+}
                                                                                                                                     
-  # Planka — project management                                                      
-  planka.{$DOMAIN} {
-      @custom_cover path_regexp cover ^/assets/(login-)?cover-[A-Za-z0-9-]+\.jpg$
+# Planka — project management                                                      
+planka.{$DOMAIN} {
+    @custom_cover path_regexp cover ^/assets/(login-)?cover-[A-Za-z0-9-]+\.jpg$
 
-      handle @custom_cover {
-          root * /srv/repo/apps/journal-watch/planka
-          rewrite * /cover-journalwatch.webp
-          file_server
-      }
+    handle @custom_cover {
+        root * /srv/repo/apps/journal-watch/planka
+        rewrite * /cover-journalwatch.webp
+        file_server
+    }
 
-      handle {
-          reverse_proxy jw_planka:1337
-      }
-  }                                                                                                                               
+    handle {
+        reverse_proxy jw_planka:1337
+    }
+}                                                                                                                               
 
-  # Flower — Celery monitoring
-  flower.{$DOMAIN} {
-      reverse_proxy jw_flower:5555
-  }
+# Flower — Celery monitoring
+flower.{$DOMAIN} {
+    reverse_proxy jw_flower:5555
+}
