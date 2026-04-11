@@ -7,15 +7,17 @@
     }
 
     handle_path /static/* {
-    root * /srv/static/journal-watch
+        root * /srv/static/journal-watch
 
-    @immutable path_regexp immutable ^.+(?:[.-][0-9a-f]{8,64})\..+$
-    @nonimmutable not path_regexp immutable ^.+(?:[.-][0-9a-f]{8,64})\..+$
+        @immutable path_regexp immutable ^.+(?:[.-][0-9a-f]{8,64})\..+$
+        @nonimmutable not path_regexp immutable ^.+(?:[.-][0-9a-f]{8,64})\..+$
 
-    header @immutable Cache-Control "public, max-age=31536000, immutable"
-    header @nonimmutable Cache-Control "public, max-age=3600"
+        header @immutable Cache-Control "public, max-age=31536000, immutable"
+        header @nonimmutable Cache-Control "public, max-age=3600"
 
-    file_server
+        file_server {
+            precompressed br gzip                                                                                                   
+        }   
     }                                                                                                 
     reverse_proxy jw_django:5000                                                                                                  
 }
