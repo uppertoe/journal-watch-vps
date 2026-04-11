@@ -141,7 +141,7 @@
             - mjml                                                                                                         
                                                                                                                                     
     # ---------------------------------------------------------------------------                                                 
-    # Celery worker + beat
+    # Celery worker + Flower
     # ---------------------------------------------------------------------------
     jw_celeryworker:                                                                                                                
       <<: *jw_django
@@ -155,27 +155,14 @@
         - jw_staticfiles:/app/staticfiles
       networks:                                                                                                                     
         - jw_internal   # workers don't need caddy
-                                                                                                                                    
-    jw_celerybeat:                                                                                                                
-      <<: *jw_django
-      command: /start-celerybeat
-      mem_reservation: 96m
-      mem_limit: 192m
-      oom_score_adj: 350
-      pids_limit: 64
-      healthcheck:
-        disable: true
-      volumes:                                                                                                                      
-        - jw_access_logs:/app/access_logs
-      networks:                                                                                                                     
-        - jw_internal           
-
+                                                                                                                                     
     jw_flower:
       <<: *jw_django
       command: /start-flower
       mem_reservation: 96m
       mem_limit: 192m
       oom_score_adj: 200
+      profiles: ['flower']
       pids_limit: 64
       volumes:
         - jw_access_logs:/app/access_logs
