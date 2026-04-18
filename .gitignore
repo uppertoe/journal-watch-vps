@@ -8,3 +8,5 @@ backup/config.env
 backup/services/*.env
 
 reports/
+__pycache__/
+*.pyc
