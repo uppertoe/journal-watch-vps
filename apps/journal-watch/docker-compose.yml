@@ -21,13 +21,14 @@
     # ---------------------------------------------------------------------------                                                 
     # Django (gunicorn)
     # ---------------------------------------------------------------------------
-    jw_django: &jw_django                                                                                                           
+    jw_django: &jw_django
       image: ${JW_DOCKERHUB_NAMESPACE}/journalwatch-app:${JW_APP_TAG:-latest}
-      restart: unless-stopped                                                                                                       
+      restart: unless-stopped
       mem_reservation: 256m
+      mem_limit: 700m
       oom_score_adj: -300
       pids_limit: 128
-      command: /start                                                                                                             
+      command: /start
       depends_on:
         jw_postgres:                                                                                                                
           condition: service_healthy
@@ -89,7 +90,19 @@
       - -c
       - track_io_timing=on
       - -c
-      - log_min_duration_statement=250ms                                                                                             
+      - log_min_duration_statement=250ms
+      # Tuning for 1.9GB-RAM VPS — give PG enough cache/work_mem to avoid disk
+      # spills, but cap so it doesn't crowd out Django/Celery.
+      - -c
+      - shared_buffers=192MB
+      - -c
+      - effective_cache_size=512MB
+      - -c
+      - work_mem=8MB
+      - -c
+      - maintenance_work_mem=64MB
+      - -c
+      - max_connections=30
       oom_score_adj: -500
       pids_limit: 128
       env_file: .env
@@ -156,17 +169,22 @@
     # ---------------------------------------------------------------------------                                                 
     # Celery worker + Flower
     # ---------------------------------------------------------------------------
-    jw_celeryworker:                                                                                                                
+    jw_celeryworker:
       <<: *jw_django
-      command: /start-celeryworker                                                                                                                                                                                                     
+      # NOTE: bound RSS growth via celery flags (concurrency=1, max-tasks-per-child=50).
+      # If /start-celeryworker doesn't already pass these, either update it in the
+      # app repo or override command here, e.g.:
+      #   command: celery -A config.celery_app worker -l INFO --concurrency=1 --max-tasks-per-child=50 --pool=solo
+      command: /start-celeryworker
       mem_reservation: 192m
+      mem_limit: 350m
       oom_score_adj: -100
       healthcheck:
         disable: true
       volumes:
         - jw_access_logs:/app/access_logs
         - jw_staticfiles:/app/staticfiles
-      networks:                                                                                                                     
+      networks:
         - jw_internal   # workers don't need caddy
                                                                                                                                      
     jw_flower:
