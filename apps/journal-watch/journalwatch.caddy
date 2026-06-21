@@ -5,10 +5,23 @@ www.{$DOMAIN} {
 
 # Journal Watch — main app
 {$DOMAIN} {
-    # Security headers                                                                                                                 
-    header {                                              
-        Permissions-Policy "camera=(), microphone=(), geolocation=()"                                                                  
-        -Server                                           
+    # Edge HTTP access log → caddy_logs volume (/var/log/caddy). Caddy logs
+    # nothing per-request by default; this gives per-request status/latency at
+    # the reverse proxy. Size-capped rotation (5 × 10 MiB = 50 MB max) so the
+    # log can never grow unbounded on this small disk.
+    log {
+        output file /var/log/caddy/journalwatch-access.log {
+            roll_size 10MiB
+            roll_keep 5
+            roll_keep_for 336h
+        }
+        format json
+    }
+
+    # Security headers
+    header {
+        Permissions-Policy "camera=(), microphone=(), geolocation=()"
+        -Server
     }
 
     handle_path /static/* {
