@@ -171,11 +171,14 @@
     # ---------------------------------------------------------------------------
     jw_celeryworker:
       <<: *jw_django
-      # NOTE: bound RSS growth via celery flags (concurrency=1, max-tasks-per-child=50).
-      # If /start-celeryworker doesn't already pass these, either update it in the
-      # app repo or override command here, e.g.:
-      #   command: celery -A config.celery_app worker -l INFO --concurrency=1 --max-tasks-per-child=50 --pool=solo
-      command: /start-celeryworker
+      # Bound RSS growth on the 350m-limited worker: recycle the prefork child
+      # every 100 tasks (--max-tasks-per-child) so leaked memory is reclaimed.
+      # Mirrors /start-celeryworker (which just execs this) but adds the flags.
+      # Keep --beat: it runs the periodic scheduler (newsletters, analytics
+      # prune) in the main process, unaffected by child recycling. concurrency=1
+      # matches the 1-vCPU box; prefork pool (not solo) is required for
+      # --max-tasks-per-child to take effect.
+      command: celery -A config.celery_app worker --beat -l INFO --concurrency=1 --max-tasks-per-child=100
       mem_reservation: 192m
       mem_limit: 350m
       oom_score_adj: -100
