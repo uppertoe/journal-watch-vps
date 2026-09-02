@@ -72,7 +72,10 @@ planka.{$DOMAIN} {
     }
 }
 
-# Flower — Celery monitoring (profile: flower)
-flower.{$DOMAIN} {
-    reverse_proxy jw_flower:5555
-}
+# Flower (Celery monitoring) is not deployed: the jw_flower service sits behind
+# the compose "flower" profile, which is not enabled, and flower.journalwatch
+# has no DNS record. An unconditional site block here made Caddy retry an ACME
+# challenge for the name every few minutes. To bring Flower back, add the DNS
+# record, enable the profile, and restore a flower.DOMAIN site block that
+# reverse-proxies to jw_flower:5555. Keep this comment free of curly braces:
+# the route renderer treats them as block delimiters.

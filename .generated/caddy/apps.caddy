@@ -144,31 +144,11 @@ planka.{$DOMAIN} {
     }
 }
 
-# Flower — Celery monitoring (profile: flower)
-flower.{$DOMAIN} {
-    encode zstd gzip
-    log {
-        output file /var/log/caddy/access.log {
-            roll_size 20MiB
-            roll_keep 12
-            roll_keep_for 2160h
-        }
-        format json
-    }
-    log_append user {http.request.header.Remote-User}
-    header {
-        ?Strict-Transport-Security "max-age=31536000; includeSubDomains"
-        ?X-Content-Type-Options nosniff
-        ?Referrer-Policy strict-origin-when-cross-origin
-        ?X-Frame-Options DENY
-    }
-    @scaffold_static_hashed path_regexp \.[0-9a-f]{8,}\.(?:css|js|mjs|woff2?|ttf|otf|svg|png|jpe?g|webp|avif|gif|ico)$
-    header @scaffold_static_hashed ?Cache-Control "private, max-age=31536000, immutable"
-    @scaffold_static_versioned {
-        query v=*
-        path *.css *.js *.mjs *.woff *.woff2 *.ttf *.otf *.svg *.png *.jpg *.jpeg *.webp *.avif *.gif *.ico
-    }
-    header @scaffold_static_versioned ?Cache-Control "private, max-age=31536000, immutable"
-    reverse_proxy jw_flower:5555
-}
+# Flower (Celery monitoring) is not deployed: the jw_flower service sits behind
+# the compose "flower" profile, which is not enabled, and flower.journalwatch
+# has no DNS record. An unconditional site block here made Caddy retry an ACME
+# challenge for the name every few minutes. To bring Flower back, add the DNS
+# record, enable the profile, and restore a flower.DOMAIN site block that
+# reverse-proxies to jw_flower:5555. Keep this comment free of curly braces:
+# the route renderer treats them as block delimiters.
 
