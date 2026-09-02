@@ -1,6 +1,7 @@
 ---
 include:
   - scaffold/docker/caddy.base.yml
+  - .generated/caddy/networks.yml   # rendered: per-app proxy networks (bash scaffold/docker/render-caddy-routes.sh)
   # Add one line per app:
   # - apps/myapp/docker-compose.yml
   - apps/journal-watch/docker-compose.yml

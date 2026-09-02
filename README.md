@@ -72,40 +72,50 @@ ssh myserver ./deploy
 
 ## Add an app
 
-Create a folder under `apps/` with three files:
+Create a folder under `apps/` with three files. The web-facing service **must be
+named after the folder** (`apps/myapp/` → service `myapp`): the scaffold renders
+a private `myapp_proxy` network that only Caddy and that service join. Don't
+declare proxy networks in the app compose file; private backend networks (app ↔
+its own database) are yours to define.
 
 **`apps/myapp/docker-compose.yml`**
 ```yaml
 services:
   myapp:
-    image: yourorg/myapp:latest
+    image: yourorg/myapp:1.2.3@sha256:…   # pin a digest, never :latest
     restart: unless-stopped
-    env_file: apps/myapp/.env
-    networks:
-      - caddy
-
-networks:
-  caddy:
-    external: true
-    name: caddy
+    env_file: .env
 ```
 
 **`apps/myapp/.env.example`** — list every required variable (no values)
 
-**`apps/myapp/myapp.caddy`**
+**`apps/myapp/myapp.caddy`** (keep comments free of curly braces — the renderer
+counts them)
 ```
 myapp.{$DOMAIN} {
     reverse_proxy myapp:3000
 }
 ```
 
-Then add one line to the root `docker-compose.yml`:
+Then add one line to the root `docker-compose.yml` and re-render the committed
+Caddy bundle:
 ```yaml
 include:
-  - apps/myapp/docker-compose.yml
+  - scaffold/docker/caddy.base.yml
+  - .generated/caddy/networks.yml
+  - apps/myapp/docker-compose.yml   ← add this
+```
+```bash
+bash scaffold/docker/render-caddy-routes.sh
+git add .generated
 ```
 
-Caddy picks up `myapp.caddy` automatically — no changes to `Caddyfile` needed.
+`.generated/caddy/apps.caddy` (all routes, mounted into Caddy instead of the
+repo) and `.generated/caddy/networks.yml` (proxy networks) are committed like
+lockfiles; re-render after any change to `apps/*/*.caddy` or the include list.
+Caddy runs as a dedicated non-root uid, so anything it bind-mounts from the repo
+must be world-readable — `~/deploy` normalises `apps/`, `scaffold/`,
+`.generated/` and `Caddyfile` on every run.
 
 ---
 
@@ -190,10 +200,21 @@ Reports saved to `reports/` (gitignored).
 ## Update the scaffold
 
 ```bash
-cd scaffold && git pull origin main && cd ..
-git add scaffold
-git commit -m "chore: update scaffold"
+git -C scaffold fetch origin
+git -C scaffold log --oneline HEAD..origin/main   # what you're missing
+```
+
+Read `scaffold/UPGRADING.md` for every entry dated after your current pointer
+(`git -C scaffold log -1 --format=%cs`) and collect the operator actions, then:
+
+```bash
+git -C scaffold checkout origin/main       # or a specific reviewed SHA
+bash scaffold/docker/render-caddy-routes.sh   # the Caddy base may have changed
+git add scaffold .generated
+git commit -m "chore: bump scaffold to <sha>"
 git push
 ```
 
-On the server: `./deploy`
+On the server: `~/deploy` applies the compose/Caddy layer. Ansible-layer changes
+(hardening roles, timers, the `~/deploy` helper itself) need the site play —
+see `scaffold/docs/12-applying-scaffold-updates.md`.
