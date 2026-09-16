@@ -60,11 +60,26 @@ www.{$DOMAIN} {
 planka.{$DOMAIN} {
     @custom_cover path_regexp cover ^/assets/(login-)?cover-[A-Za-z0-9-]+\.jpg$
 
-    # /srv/planka is apps/journal-watch/planka, mounted read-only in docker-compose.yml
+    # /srv/planka is apps/journal-watch/planka, mounted read-only in docker-compose.yml.
+    # The cover never changes without a new filename, so let browsers and
+    # Cloudflare keep it for a year.
     handle @custom_cover {
         root * /srv/planka
         rewrite * /cover-journalwatch.webp
+        header Cache-Control "public, max-age=31536000, immutable"
         file_server
+    }
+
+    # Planka 2.1 sends max-age in milliseconds (31557600000) on the files it
+    # streams from S3. Firefox rejects a max-age above 2^32-1 and falls back
+    # to heuristic freshness, so board backgrounds re-download. Replace the
+    # header with the year Planka intended. Keep it private: these routes are
+    # gated on the Planka session cookie and must not be cached at the edge.
+    @planka_files path /background-images/* /user-avatars/* /favicons/*
+    handle @planka_files {
+        reverse_proxy jw_planka:1337 {
+            header_down Cache-Control "private, max-age=31536000, immutable"
+        }
     }
 
     handle {
