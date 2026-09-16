@@ -71,14 +71,23 @@ planka.{$DOMAIN} {
     }
 
     # Planka 2.1 sends max-age in milliseconds (31557600000) on the files it
-    # streams from S3. Firefox rejects a max-age above 2^32-1 and falls back
-    # to heuristic freshness, so board backgrounds re-download. Replace the
-    # header with the year Planka intended. Keep it private: these routes are
-    # gated on the Planka session cookie and must not be cached at the edge.
+    # streams from S3 (plankanban/planka#1779). Firefox rejects a max-age
+    # above 2^32-1 and falls back to heuristic freshness, so board backgrounds
+    # re-download. Drop Planka's header and set the year it intended, but only
+    # on 200s: these routes answer 401 without the session cookie. The delete
+    # has to happen in header_down because copy_response re-adds upstream
+    # headers with Add semantics, so a header set beforehand would be joined
+    # by the bad value rather than replace it. Keep it private: the routes
+    # are gated on the Planka session cookie and must not be cached at the edge.
     @planka_files path /background-images/* /user-avatars/* /favicons/*
     handle @planka_files {
         reverse_proxy jw_planka:1337 {
-            header_down Cache-Control "private, max-age=31536000, immutable"
+            header_down -Cache-Control
+            @ok status 200
+            handle_response @ok {
+                header Cache-Control "private, max-age=31536000, immutable"
+                copy_response
+            }
         }
     }
 
