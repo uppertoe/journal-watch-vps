@@ -85,6 +85,16 @@ services:
   # ---------------------------------------------------------------------------
   journal-watch:
     <<: *journal_watch_base
+    # Keep the web workers resident. Measured here: this page renders in
+    # 0.13-0.23 s with the process in RAM, and took 1.39 s once it had been
+    # paged out over an idle spell - the first visitor of the morning was
+    # faulting ~200 MB back from dm-crypt swap on one vCPU. Peak is 316 MB
+    # against the 700m ceiling, so the slice costs no real headroom.
+    #
+    # Deliberately on this service and not the shared anchor: jw_celeryworker
+    # needs its swap. Its children were already being OOM-killed at the old
+    # 350m ceiling, and taking swap away as well would only make that worse.
+    cgroup_parent: vps-noswap.slice
 
   caddy:
     volumes:
