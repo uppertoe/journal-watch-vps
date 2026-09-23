@@ -4,9 +4,14 @@
 services:
   caddy:
     networks:
+      - ntfy_proxy
       - journal-watch_proxy
+  ntfy:
+    networks:
+      - ntfy_proxy
   journal-watch:
     networks:
       - journal-watch_proxy
 networks:
+  ntfy_proxy: {}
   journal-watch_proxy: {}

@@ -1,0 +1,115 @@
+services:
+  # One-shot volume initialiser: fresh named volumes are root-owned, and the
+  # hardened ntfy below runs as 1000 — it dies at startup unable to create its
+  # user/cache DBs on a first provision (long-lived hosts never noticed:
+  # their volumes predate the non-root hardening). Same pattern as caddy-init.
+  ntfy-init:
+    image: binwiederhier/ntfy:latest@sha256:6ef4b819f722fccdc036af611c4774cfdc2de821ab74fdd48bbf4c9d6f8973da
+    restart: "no"
+    user: "0:0"
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    mem_limit: 64m
+    pids_limit: 32
+    network_mode: none
+    entrypoint: ["/bin/sh", "-c", "chown -R 1000:1000 /var/cache/ntfy /var/lib/ntfy"]
+    volumes:
+      - ntfy_cache:/var/cache/ntfy
+      - ntfy_lib:/var/lib/ntfy
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+      - "vps-scaffold.audit=init-volume-owner"
+
+  ntfy:
+    # Pinned by digest (supply-chain control; CI's image-pins job enforces it;
+    # the weekly digest-freshness workflow flags drift).
+    image: binwiederhier/ntfy:latest@sha256:6ef4b819f722fccdc036af611c4774cfdc2de821ab74fdd48bbf4c9d6f8973da
+    depends_on:
+      ntfy-init:
+        condition: service_completed_successfully
+    command: ["serve"]
+    restart: unless-stopped
+    init: true  # reap the healthcheck's wget zombies (per upstream compose)
+    # CIS Docker §5 runtime hardening. ntfy listens on a high port (8080) so it
+    # needs no privileged-port capability and runs non-root.
+    user: "1000:1000"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp
+    mem_limit: 128m
+    pids_limit: 128
+    env_file:
+      - path: ./.env
+        required: false  # keep `docker compose config` valid in CI without a real .env
+    environment:
+      - TZ=UTC
+      # Overridable (apps/ntfy/.env): base-url must be the hostname phones
+      # SUBSCRIBE through, not merely one the server answers on. The iOS app
+      # derives its upstream (APNs relay) topic from the URL it subscribed with,
+      # and the server derives it from base-url — a mismatch means iPhones never
+      # get a background push, silently.
+      - NTFY_BASE_URL=${NTFY_BASE_URL:-https://ntfy.${DOMAIN}}
+      # iOS background push for a self-hosted server: each publish also sends a
+      # content-free poll request (a topic HASH, no message body) via ntfy.sh's
+      # APNs. Without it, iPhones only see notifications while the ntfy app is
+      # in the foreground. Android needs nothing — it holds its own WebSocket.
+      - NTFY_UPSTREAM_BASE_URL=https://ntfy.sh
+      # debug logs every subscribe/unsubscribe with its topic — the only way to
+      # see whether a given phone is actually connected (a WebSocket never
+      # completes, so the reverse proxy's access log never shows it).
+      - NTFY_LOG_LEVEL=${NTFY_LOG_LEVEL:-info}
+      - NTFY_LOG_FORMAT=json
+      - NTFY_LISTEN_HTTP=:8080
+      - NTFY_BEHIND_PROXY=true
+      # Private by default: nobody can read/write without an explicit token/user.
+      - NTFY_AUTH_FILE=/var/lib/ntfy/user.db
+      - NTFY_AUTH_DEFAULT_ACCESS=deny-all
+      # Hardened default: serve only the API (no public web UI / login SPA). The
+      # phone app, CLI, on-box vps-notify and the bounce-Lambda all use the API.
+      # Override with NTFY_WEB_ROOT=app in apps/ntfy/.env if you want the browser UI.
+      - NTFY_WEB_ROOT=${NTFY_WEB_ROOT:-disable}
+      - NTFY_ENABLE_SIGNUP=false
+      - NTFY_CACHE_FILE=/var/cache/ntfy/cache.db
+      - NTFY_ATTACHMENT_CACHE_DIR=/var/cache/ntfy/attachments
+    ports:
+      # On-box publishing only: vps-notify (running on the host) POSTs here.
+      # Bound to loopback so it is NOT publicly exposed. Remote subscription
+      # (the phone app) goes through Caddy via ntfy.caddy once DOMAIN is set.
+      - "127.0.0.1:8080:8080"
+    volumes:
+      - ntfy_cache:/var/cache/ntfy
+      - ntfy_lib:/var/lib/ntfy
+    # Proxy-network wiring is generated (.generated/caddy/networks.yml): ntfy
+    # joins only its own ntfy_proxy network, which Caddy also joins.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O - http://127.0.0.1:8080/v1/health | grep -q '\"healthy\":true' || exit 1"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    # Own rotating log files rather than the host's shared journald budget:
+    # debug-level ntfy is chatty (every request, publish and subscribe), and the
+    # journal's SystemMaxUse cap is shared with every other container, so a
+    # verbose ntfy would evict the app logs that matter more. 5 x 20 MB, and
+    # `docker logs` keeps working.
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "5"
+    labels:
+      - "com.centurylinklabs.watchtower.enable=false"
+
+volumes:
+  ntfy_cache:
+  ntfy_lib:

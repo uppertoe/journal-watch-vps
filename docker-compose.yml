@@ -1,5 +1,10 @@
 ---
 include:
+  # Self-hosted ntfy push server — where the scaffold's security and
+  # dead-man alerts are published. On-box publishing over 127.0.0.1:8080 is
+  # all the notify role needs; for phone delivery, point DNS ntfy.<domain> at
+  # this host and rename apps/ntfy/ntfy.caddy.disabled -> ntfy.caddy.
+  - apps/ntfy/docker-compose.yml
   - scaffold/docker/caddy.base.yml
   - .generated/caddy/networks.yml   # rendered: per-app proxy networks (bash scaffold/docker/render-caddy-routes.sh)
   # Add one line per app:

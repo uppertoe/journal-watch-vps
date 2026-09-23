@@ -1,0 +1,11 @@
+# Remote subscribe endpoint for the ntfy push server (phone app, browser).
+# ntfy enforces its own token/user auth (NTFY_AUTH_DEFAULT_ACCESS=deny-all), so
+# this is intentionally NOT placed behind the Caddy auth wall -- forward_auth
+# would break ntfy's streaming/websocket and app protocol.
+#
+# Activates once DOMAIN points at this host with DNS for ntfy.<domain>. Until
+# then, on-box publishing still works via 127.0.0.1:8080 -- see docker-compose.
+#
+ntfy.{$DOMAIN} {
+	reverse_proxy ntfy:8080
+}
