@@ -97,8 +97,16 @@ services:
   # PostgreSQL (Django)
   # ---------------------------------------------------------------------------
   jw_postgres:
-    image: postgres:17-alpine
+    # Pinned to the digest that has been running here, so this is a pin and not
+    # an upgrade. Bump deliberately.
+    image: postgres:17-alpine@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
     restart: unless-stopped
+    # Was unbounded on a 2 GB host already deep in swap, so a runaway here had
+    # nothing to stop it before the kernel started choosing victims. 512m
+    # against a measured 188 MB peak over six days, and above
+    # shared_buffers=192MB plus the work_mem a realistic number of the 30
+    # permitted connections would take at once.
+    mem_limit: 512m
     command:
     - postgres
     - -c
@@ -145,7 +153,8 @@ services:
   # Redis (Celery broker + Django cache)
   # ---------------------------------------------------------------------------
   jw_redis:
-    image: redis:7-alpine
+    # Pinned to the digest already running.
+    image: redis:7-alpine@sha256:ff02b58f971e7d7d156a1267e283fcbbeee91773b6aa36c49dac28ecfe28eadf
     restart: unless-stopped
     mem_limit: 128m
     oom_score_adj: 300
@@ -283,10 +292,15 @@ services:
   # PostgreSQL (Planka)
   # ---------------------------------------------------------------------------
   jw_planka_postgres:
-    image: postgres:16-alpine
+    # Pinned to the digest already running. Planka's own image is pinned to
+    # 2.1.0 below and must stay there; this is its database, pinned for the
+    # same reason - no silent major-version change under a live data volume.
+    image: postgres:16-alpine@sha256:cf78e76683b9ca8c5733cbbdce6c9262b45b6767934dd0a95e671f9a0fc20685
     restart: unless-stopped
     oom_score_adj: -400
     pids_limit: 128
+    # 256m against a measured 52 MB peak over six days. Was unbounded.
+    mem_limit: 256m
     environment:
       POSTGRES_DB: planka
       POSTGRES_PASSWORD: ${PLANKA_POSTGRES_PASSWORD}
