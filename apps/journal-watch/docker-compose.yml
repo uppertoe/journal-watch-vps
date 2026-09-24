@@ -288,6 +288,24 @@ services:
       S3_SECRET_ACCESS_KEY: ${PLANKA_S3_SECRET_ACCESS_KEY}
       S3_BUCKET: ${PLANKA_S3_BUCKET}
       S3_FORCE_PATH_STYLE: "false"
+      # Notification email. Planka emails whoever it would notify in-app, so
+      # this reaches reviewers about their own cards: they are auto-subscribed
+      # when added to one and when they comment. Board-wide mail only happens
+      # for someone who deliberately subscribes to a board, which is an opt-in
+      # toggle and never set by board membership. There is no separate per-user
+      # email switch in 2.1.0, so turning this on turns it on for everyone -
+      # scoped, though, by those same subscriptions.
+      #
+      # Credentials are SES SMTP, derived from this deployment's own IAM key
+      # (username = access key ID, password = an HMAC over the secret), so no
+      # AWS resource was created and no credential is shared between hosts.
+      # SMTP_SECURE is deliberately absent: 587 is STARTTLS, and Planka reads
+      # it as `=== 'true'`, so setting it would try implicit TLS and fail.
+      SMTP_HOST: ${PLANKA_SMTP_HOST}
+      SMTP_PORT: ${PLANKA_SMTP_PORT}
+      SMTP_USER: ${PLANKA_SMTP_USER}
+      SMTP_PASSWORD: ${PLANKA_SMTP_PASSWORD}
+      SMTP_FROM: ${PLANKA_SMTP_FROM}
     volumes:
       - ./planka/custom:/app/terms/custom:ro
     healthcheck:
