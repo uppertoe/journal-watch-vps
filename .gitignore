@@ -10,3 +10,4 @@ backup/services/*.env
 reports/
 __pycache__/
 *.pyc
+.claude

@@ -267,6 +267,10 @@ services:
   # Planka (profile: planka)
   # ---------------------------------------------------------------------------
   jw_planka:
+    # Caddy-reachable, so a person waits on it: keep it resident rather than
+    # let the hourly backup or a deploy evict it and charge the next visitor
+    # the fault-in from dm-crypt swap. Asserted by the compose audit.
+    cgroup_parent: vps-noswap.slice
     # PINNED BY DIGEST — newer Planka releases break the OIDC login flow. Do not
     # bump without re-testing SSO against Django (see docs/07 in the app repo).
     image: ghcr.io/plankanban/planka:2.1.0@sha256:32c919d9e65b0479d1bbf0e4fb8e00fb11403a5234242b9f5fc900e595c2e2ce

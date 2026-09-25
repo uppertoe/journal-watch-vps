@@ -27,6 +27,10 @@ services:
       - "vps-scaffold.audit=init-volume-owner"
 
   ntfy:
+    # Caddy-reachable, so a person waits on it: keep it resident rather than
+    # let the hourly backup or a deploy evict it and charge the next visitor
+    # the fault-in from dm-crypt swap. Asserted by the compose audit.
+    cgroup_parent: vps-noswap.slice
     # Pinned by digest (supply-chain control; CI's image-pins job enforces it;
     # the weekly digest-freshness workflow flags drift).
     image: binwiederhier/ntfy:latest@sha256:6ef4b819f722fccdc036af611c4774cfdc2de821ab74fdd48bbf4c9d6f8973da
