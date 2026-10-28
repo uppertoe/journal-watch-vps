@@ -37,6 +37,7 @@ GENERATORS: dict[str, Callable[[], str]] = {
     "OIDC_CLIENT_SECRET": gen_token_hex(32),
     "DEFAULT_ADMIN_PASSWORD": gen_token_urlsafe(24),
     "PLANKA_WEBHOOK_SECRET": gen_token_urlsafe(32),
+    "JW_REDIS_PASSWORD": gen_token_hex(32),
 }
 
 
