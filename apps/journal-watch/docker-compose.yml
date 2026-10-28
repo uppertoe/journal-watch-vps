@@ -49,6 +49,12 @@ x-journal-watch-base: &journal_watch_base
   mem_limit: 700m
   oom_score_adj: -300
   pids_limit: 128
+  # The image runs as the unprivileged django user and binds port 5000, so
+  # gunicorn, Celery, Flower and collectstatic need no capabilities.
+  cap_drop:
+    - ALL
+  security_opt:
+    - no-new-privileges:true
   command: /start
   depends_on:
     jw_postgres:
@@ -183,7 +189,9 @@ services:
       - POSTGRES_PASSWORD
       - POSTGRES_INITDB_ARGS
       - POSTGRES_HOST_AUTH_METHOD
-      - PGDATA
+      # A bare name missing from .env would replace the image's own PGDATA
+      # with nothing, so the image default is spelled out as the fallback.
+      - PGDATA=${PGDATA:-/var/lib/postgresql/data}
       - TZ
     volumes:
       - jw_postgres_data:/var/lib/postgresql/data
@@ -236,6 +244,13 @@ services:
     mem_limit: 128m
     oom_score_adj: 400
     pids_limit: 64
+    # The image runs as root by default, but the renderer only reads its own
+    # files and binds port 28101, so the node user is enough.
+    user: node
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     command: ["--mjml.minify=true", "--mjml.validationLevel=strict"]
     healthcheck:
       test:
