@@ -9,13 +9,25 @@
 #   * Planka and Flower are further web-facing services of the same app, so
 #     they join the same generated journal-watch_proxy network explicitly.
 #   * jw_internal is this app's private backend network (Django ↔ Postgres,
-#     Redis, MJML, Planka).
+#     Redis, MJML). Planka is not on it.
+#   * jw_planka_internal joins Planka, its database, and the Django web and
+#     Celery containers, which call the Planka API and write to Planka's
+#     database. Planka is third-party, internet-facing and pinned to an old
+#     release, so it gets no route to Django's database or to Redis.
+#   * Only the Django-image services read the whole .env. Planka and both
+#     databases list the variables they use, so a compromised Planka holds
+#     none of Django's secrets. A bare name passes the value through from
+#     .env when it is set there and is left unset otherwise, exactly as
+#     env_file did for that one variable.
 #
 # Bring up with:  docker compose --profile workers --profile planka up -d
 
 networks:
   jw_internal:
     name: jw_internal
+    driver: bridge
+  jw_planka_internal:
+    name: jw_planka_internal
     driver: bridge
 
 volumes:
@@ -76,6 +88,10 @@ x-journal-watch-base: &journal_watch_base
     jw_internal:
       aliases:
         - jw-django
+    # Planka's webhooks call http://jw-django:5000 (PLANKA_CALLBACK_BASE_URL).
+    jw_planka_internal:
+      aliases:
+        - jw-django
 
 services:
 
@@ -127,8 +143,13 @@ services:
     - pg_stat_statements.max=10000
     - -c
     - track_io_timing=on
+    # No log_min_duration_statement: psycopg writes values into the SQL text,
+    # so a slow-query log line carries email addresses and names into
+    # journald. pg_stat_statements above records slow queries with the values
+    # stripped. Terse errors likewise leave out the DETAIL line, which quotes
+    # the offending key value ("Key (email)=(...) already exists").
     - -c
-    - log_min_duration_statement=250ms
+    - log_error_verbosity=terse
     # Tuning for 1.9GB-RAM VPS — give PG enough cache/work_mem to avoid disk
     # spills, but cap so it doesn't crowd out Django/Celery.
     - -c
@@ -143,14 +164,33 @@ services:
     - max_connections=30
     oom_score_adj: -500
     pids_limit: 128
-    env_file: .env
+    # The entrypoint starts as root, fixes data-directory ownership, then
+    # drops to the postgres user; these are the capabilities that needs.
+    # Tested here on a fresh volume, a restart, pg_dump and a restore.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
+    environment:
+      - POSTGRES_DB
+      - POSTGRES_USER
+      - POSTGRES_PASSWORD
+      - POSTGRES_INITDB_ARGS
+      - POSTGRES_HOST_AUTH_METHOD
+      - PGDATA
+      - TZ
     volumes:
       - jw_postgres_data:/var/lib/postgresql/data
       - jw_postgres_backups:/backups
       - ./postgres:/docker-entrypoint-initdb.d:ro
-    # Exposed on loopback only so the VPS backup agent can connect from the host
-    ports:
-      - "127.0.0.1:5432:5432"
+    # No host port: backup, restore and the restore drill all reach the
+    # database through docker exec.
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-spanza_journal_watch}"]
       interval: 30s
@@ -169,6 +209,15 @@ services:
     mem_limit: 128m
     oom_score_adj: 300
     pids_limit: 64
+    # The entrypoint drops from root to the redis user, which needs only
+    # SETUID and SETGID once /data is owned by redis.
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -236,6 +285,7 @@ services:
       - jw_staticfiles:/app/staticfiles
     networks:
       - jw_internal   # workers don't need caddy
+      - jw_planka_internal   # Celery tasks write to Planka's database
 
   jw_flower:
     <<: *journal_watch_base
@@ -278,20 +328,76 @@ services:
     mem_limit: 256m
     oom_score_adj: 250
     pids_limit: 128
+    # The image already runs as the non-root node user and needs no
+    # capabilities at all.
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
     depends_on:
       jw_planka_postgres:
         condition: service_healthy
-    env_file: .env
+    # No env_file: Planka reads only what is mapped or named here. The bare
+    # names are every variable Planka 2.1.0 reads (grepped from the pinned
+    # image), so any that .env sets still reach it. Re-check the list if the
+    # image is ever bumped.
     environment:
-      DATABASE_URL: postgresql://postgres:${PLANKA_POSTGRES_PASSWORD}@jw_planka_postgres/planka
+      - BASE_URL
+      - SECRET_KEY
+      - TRUST_PROXY
+      - TOKEN_EXPIRES_IN
+      - MAX_UPLOAD_FILE_SIZE
+      - STORAGE_LIMIT
+      - ACTIVE_USERS_LIMIT
+      - DEFAULT_LANGUAGE
+      - DEFAULT_ADMIN_NAME
+      - DEFAULT_ADMIN_USERNAME
+      - DEFAULT_ADMIN_PASSWORD
+      - GRAVATAR_BASE_URL
+      - INTERNAL_ACCESS_TOKEN
+      - KNEX_REJECT_UNAUTHORIZED_SSL_CERTIFICATE
+      - OUTGOING_PROXY
+      - SHOW_DETAILED_AUTH_ERRORS
+      - SWAGGER_EXPOSED
+      - TERMS_TYPE
+      - DEMO_MODE
+      - CUSTOMER_PANEL_URL
+      - OIDC_CLIENT_ID
+      - OIDC_CLIENT_SECRET
+      - OIDC_ENFORCED
+      - OIDC_SCOPES
+      - OIDC_EMAIL_ATTRIBUTE
+      - OIDC_NAME_ATTRIBUTE
+      - OIDC_USERNAME_ATTRIBUTE
+      - OIDC_ROLES_ATTRIBUTE
+      - OIDC_ADMIN_ROLES
+      - OIDC_PROJECT_OWNER_ROLES
+      - OIDC_BOARD_USER_ROLES
+      - OIDC_IGNORE_USERNAME
+      - OIDC_IGNORE_ROLES
+      - OIDC_CLAIMS_SOURCE
+      - OIDC_RESPONSE_MODE
+      - OIDC_USE_DEFAULT_RESPONSE_MODE
+      - OIDC_USE_OAUTH_CALLBACK
+      - OIDC_ID_TOKEN_SIGNED_RESPONSE_ALG
+      - OIDC_USERINFO_SIGNED_RESPONSE_ALG
+      - OIDC_TIMEOUT
+      - OIDC_DEBUG
+      - S3_ENDPOINT
+      - SMTP_NAME
+      - SMTP_TLS_REJECT_UNAUTHORIZED
+      - NODE_ENV
+      - PORT
+      - TZ
+      - DATABASE_URL=postgresql://postgres:${PLANKA_POSTGRES_PASSWORD}@jw_planka_postgres/planka
       # OIDC issuer is the public Django URL — read from .env
-      OIDC_ISSUER: ${OIDC_ISS_ENDPOINT}
-      DEFAULT_ADMIN_EMAIL: ${PLANKA_ADMIN_EMAIL}
-      S3_REGION: ${PLANKA_S3_REGION}
-      S3_ACCESS_KEY_ID: ${PLANKA_S3_ACCESS_KEY_ID}
-      S3_SECRET_ACCESS_KEY: ${PLANKA_S3_SECRET_ACCESS_KEY}
-      S3_BUCKET: ${PLANKA_S3_BUCKET}
-      S3_FORCE_PATH_STYLE: "false"
+      - OIDC_ISSUER=${OIDC_ISS_ENDPOINT}
+      - DEFAULT_ADMIN_EMAIL=${PLANKA_ADMIN_EMAIL}
+      - S3_REGION=${PLANKA_S3_REGION}
+      - S3_ACCESS_KEY_ID=${PLANKA_S3_ACCESS_KEY_ID}
+      - S3_SECRET_ACCESS_KEY=${PLANKA_S3_SECRET_ACCESS_KEY}
+      - S3_BUCKET=${PLANKA_S3_BUCKET}
+      - S3_FORCE_PATH_STYLE=false
       # Notification email. Planka emails whoever it would notify in-app, so
       # this reaches reviewers about their own cards: they are auto-subscribed
       # when added to one and when they comment. Board-wide mail only happens
@@ -305,11 +411,11 @@ services:
       # AWS resource was created and no credential is shared between hosts.
       # SMTP_SECURE is deliberately absent: 587 is STARTTLS, and Planka reads
       # it as `=== 'true'`, so setting it would try implicit TLS and fail.
-      SMTP_HOST: ${PLANKA_SMTP_HOST}
-      SMTP_PORT: ${PLANKA_SMTP_PORT}
-      SMTP_USER: ${PLANKA_SMTP_USER}
-      SMTP_PASSWORD: ${PLANKA_SMTP_PASSWORD}
-      SMTP_FROM: ${PLANKA_SMTP_FROM}
+      - SMTP_HOST=${PLANKA_SMTP_HOST}
+      - SMTP_PORT=${PLANKA_SMTP_PORT}
+      - SMTP_USER=${PLANKA_SMTP_USER}
+      - SMTP_PASSWORD=${PLANKA_SMTP_PASSWORD}
+      - SMTP_FROM=${PLANKA_SMTP_FROM}
     volumes:
       - ./planka/custom:/app/terms/custom:ro
     healthcheck:
@@ -326,7 +432,7 @@ services:
       start_period: 30s
     networks:
       - journal-watch_proxy   # generated in .generated/caddy/networks.yml
-      - jw_internal
+      - jw_planka_internal
 
   # ---------------------------------------------------------------------------
   # PostgreSQL (Planka)
@@ -339,6 +445,19 @@ services:
     restart: unless-stopped
     oom_score_adj: -400
     pids_limit: 128
+    # The entrypoint starts as root, fixes data-directory ownership, then
+    # drops to the postgres user; these are the capabilities that needs.
+    # Tested here on a fresh volume, a restart, pg_dump and a restore.
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - FOWNER
+      - SETUID
+      - SETGID
+    security_opt:
+      - no-new-privileges:true
     # 256m against a measured 52 MB peak over six days. Was unbounded.
     mem_limit: 256m
     environment:
@@ -346,14 +465,13 @@ services:
       POSTGRES_PASSWORD: ${PLANKA_POSTGRES_PASSWORD}
     volumes:
       - jw_planka_postgres_data:/var/lib/postgresql/data
-    # Port 5433 avoids conflict with Django postgres on 5432
-    ports:
-      - "127.0.0.1:5433:5432"
+    # No host port: backups reach the database through docker exec, and
+    # Django reaches it over jw_planka_internal.
     healthcheck:
       test: ["CMD-SHELL", "PGPASSWORD=$${POSTGRES_PASSWORD} pg_isready -U postgres -d planka"]
       interval: 30s
       timeout: 5s
       retries: 5
     networks:
-      - jw_internal
+      - jw_planka_internal
 
