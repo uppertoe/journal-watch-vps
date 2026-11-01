@@ -12,8 +12,8 @@
 #     Redis, MJML). Planka is not on it.
 #   * jw_planka_internal joins Planka, its database, and the Django web and
 #     Celery containers, which call the Planka API and write to Planka's
-#     database. Planka is third-party, internet-facing and pinned to an old
-#     release, so it gets no route to Django's database or to Redis.
+#     database. Planka is third-party code and internet-facing, so it gets
+#     no route to Django's database or to Redis.
 #   * Both of those networks are internal: nothing on them can reach the
 #     internet. The web container reaches it through the proxy network and the
 #     Celery worker through jw_egress, which carries nothing else.
@@ -133,6 +133,10 @@ services:
       # Planka cover artwork served by Caddy. The hardened Caddy no longer
       # mounts the deploy repo, so expose only this asset directory.
       - ./planka:/srv/planka:ro
+    # The secret that journalwatch.caddy injects as X-Gateway-Secret on every
+    # request to Planka. Same .env value as jw_planka's GATEWAY_AUTH_SECRET.
+    environment:
+      - PLANKA_GATEWAY_SECRET=${PLANKA_GATEWAY_SECRET:-}
 
   # ---------------------------------------------------------------------------
   # PostgreSQL (Django)
@@ -351,9 +355,14 @@ services:
     # let the hourly backup or a deploy evict it and charge the next visitor
     # the fault-in from dm-crypt swap. Asserted by the compose audit.
     cgroup_parent: vps-noswap.slice
-    # PINNED BY DIGEST — newer Planka releases break the OIDC login flow. Do not
-    # bump without re-testing SSO against Django (see docs/07 in the app repo).
-    image: ghcr.io/plankanban/planka:2.1.0@sha256:32c919d9e65b0479d1bbf0e4fb8e00fb11403a5234242b9f5fc900e595c2e2ce
+    # Our own build of Planka (github.com/uppertoe/kanban-gateway-signin):
+    # upstream 2.2.1 plus a sign-in patch that takes the identity from the
+    # Remote-Email / Remote-Groups headers Caddy adds after asking Django at
+    # /planka/check (journalwatch.caddy). Upstream removed single sign-on in
+    # 2.2.0, so the OIDC settings are gone. The image's CI upgrades a real
+    # database and runs the sign-in checks before it publishes, so Renovate's
+    # digest bumps are safe to take.
+    image: ghcr.io/uppertoe/kanban-gateway-signin:latest@sha256:d9d307576e1b38c0a9cb4fb2b3d962d47f2e2fe14dce04e2a136fcebfebb0897
     restart: unless-stopped
     mem_limit: 256m
     oom_score_adj: 250
@@ -368,11 +377,10 @@ services:
       jw_planka_postgres:
         condition: service_healthy
     # No env_file: Planka reads only what is mapped or named here. The
-    # DEFAULT_ADMIN_* variables are left out: sign-in is OIDC-only, and the
-    # admin account they created already exists. The bare
-    # names are every variable Planka 2.1.0 reads (grepped from the pinned
-    # image), so any that .env sets still reach it. Re-check the list if the
-    # image is ever bumped.
+    # DEFAULT_ADMIN_* variables are left out: password sign-in is off, and the
+    # admin account they created already exists. The bare names are every
+    # variable Planka 2.2.1 reads (grepped from the image), so any that .env
+    # sets still reach it. Re-check the list if the image is ever bumped.
     environment:
       - BASE_URL
       - SECRET_KEY
@@ -391,27 +399,8 @@ services:
       - TERMS_TYPE
       - DEMO_MODE
       - CUSTOMER_PANEL_URL
-      - OIDC_CLIENT_ID
-      - OIDC_CLIENT_SECRET
-      - OIDC_ENFORCED
-      - OIDC_SCOPES
-      - OIDC_EMAIL_ATTRIBUTE
-      - OIDC_NAME_ATTRIBUTE
-      - OIDC_USERNAME_ATTRIBUTE
-      - OIDC_ROLES_ATTRIBUTE
-      - OIDC_ADMIN_ROLES
-      - OIDC_PROJECT_OWNER_ROLES
-      - OIDC_BOARD_USER_ROLES
-      - OIDC_IGNORE_USERNAME
-      - OIDC_IGNORE_ROLES
-      - OIDC_CLAIMS_SOURCE
-      - OIDC_RESPONSE_MODE
-      - OIDC_USE_DEFAULT_RESPONSE_MODE
-      - OIDC_USE_OAUTH_CALLBACK
-      - OIDC_ID_TOKEN_SIGNED_RESPONSE_ALG
-      - OIDC_USERINFO_SIGNED_RESPONSE_ALG
-      - OIDC_TIMEOUT
-      - OIDC_DEBUG
+      - LOG_LEVEL
+      - S3_REQUEST_CHECKSUM_CALCULATION
       - S3_ENDPOINT
       - SMTP_NAME
       - SMTP_TLS_REJECT_UNAUTHORIZED
@@ -419,8 +408,23 @@ services:
       - PORT
       - TZ
       - DATABASE_URL=postgresql://postgres:${PLANKA_POSTGRES_PASSWORD}@jw_planka_postgres/planka
-      # OIDC issuer is the public Django URL — read from .env
-      - OIDC_ISSUER=${OIDC_ISS_ENDPOINT}
+      # --- Gateway sign-in ---
+      # Planka trusts Remote-Email / Remote-Groups only alongside this secret,
+      # which Caddy injects (journalwatch.caddy) from the same .env value.
+      # Password sign-in is off while GATEWAY_AUTH is true. Planka refuses to
+      # start if the secret is missing or shorter than 32 characters.
+      - GATEWAY_AUTH=true
+      - GATEWAY_AUTH_SECRET=${PLANKA_GATEWAY_SECRET:?set PLANKA_GATEWAY_SECRET in apps/journal-watch/.env}
+      # Group -> Planka role, re-applied at every sign-in. Django sends the
+      # groups from its permissions (backend/planka_gateway.py in the app):
+      # chief editors are admins, other staff and invited contributors are
+      # board users. Nobody needs project owner: Django creates the projects
+      # with its API key.
+      - GATEWAY_ADMIN_GROUPS=planka-admins
+      - GATEWAY_BOARD_USER_GROUPS=planka-users
+      # Signing out of Planka also signs out of Journal Watch (allauth asks
+      # for confirmation), which then returns the browser to Planka's door.
+      - GATEWAY_LOGOUT_URL=https://${DOMAIN}/accounts/logout/?next=/planka/
       - S3_REGION=${PLANKA_S3_REGION}
       - S3_ACCESS_KEY_ID=${PLANKA_S3_ACCESS_KEY_ID}
       - S3_SECRET_ACCESS_KEY=${PLANKA_S3_SECRET_ACCESS_KEY}
@@ -502,4 +506,3 @@ services:
       retries: 5
     networks:
       - jw_planka_internal
-
