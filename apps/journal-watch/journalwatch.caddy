@@ -107,6 +107,19 @@ planka.{$DOMAIN} {
 
     @custom_cover path_regexp cover ^/assets/(login-)?cover-[A-Za-z0-9-]+\.jpg$
 
+    # Planka 2.1 builds file paths for /user-avatars, /background-images and
+    # /favicons straight from the request path, so a signed-in user can step
+    # out of the uploads directory with dot segments and read any file the
+    # Planka process can, including its environment and secrets (fixed
+    # upstream in 2.2.1, which this pin cannot take while sign-in is OIDC).
+    # Refuse any request whose raw path holds a dot segment, an encoded dot or
+    # an encoded backslash before it reaches Planka. Planka's own URLs never
+    # contain them. The respond sits inside each handle below because Caddy
+    # runs handle blocks before a top-level respond. Verified 2026-11-01
+    # against 2.1.0 behind Caddy: traversal forms answer 400, normal pages,
+    # the API and avatar upload and fetch still work.
+    @jw_traversal expression `{http.request.orig_uri.path}.matches("(?i)\\.\\.|%2e|%5c")`
+
     # /srv/planka is apps/journal-watch/planka, mounted read-only in docker-compose.yml.
     # The cover never changes without a new filename, so let browsers and
     # Cloudflare keep it for a year.
@@ -128,6 +141,7 @@ planka.{$DOMAIN} {
     # are gated on the Planka session cookie and must not be cached at the edge.
     @planka_files path /background-images/* /user-avatars/* /favicons/*
     handle @planka_files {
+        respond @jw_traversal 400
         # scaffold-lint: allow-session-cookie
         reverse_proxy jw_planka:1337 {
             header_up X-Forwarded-For {client_ip}
@@ -141,6 +155,7 @@ planka.{$DOMAIN} {
     }
 
     handle {
+        respond @jw_traversal 400
         # scaffold-lint: allow-session-cookie
         reverse_proxy jw_planka:1337 {
             header_up X-Forwarded-For {client_ip}
