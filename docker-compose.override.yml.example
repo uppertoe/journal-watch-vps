@@ -5,6 +5,9 @@
 #
 # One-time setup:
 #   docker compose exec caddy caddy trust
+#
+# The Caddy bundle (.generated/caddy/) is committed; after changing apps,
+# re-render it with: bash scaffold/docker/render-caddy-routes.sh
 
 services:
   caddy:
