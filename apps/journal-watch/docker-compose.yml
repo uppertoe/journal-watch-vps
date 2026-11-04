@@ -208,9 +208,13 @@ services:
       - POSTGRES_PASSWORD
       - POSTGRES_INITDB_ARGS
       - POSTGRES_HOST_AUTH_METHOD
-      # A bare name missing from .env would replace the image's own PGDATA
-      # with nothing, so the image default is spelled out as the fallback.
-      - PGDATA=${PGDATA:-/var/lib/postgresql/data}
+      # The image default, spelled out rather than read from .env: a bare
+      # name missing from .env would replace the image's own PGDATA with
+      # nothing, and an interpolated reference to the variable is stubbed
+      # with a dummy path by the CI smoke test, whose data-volume check then
+      # fails. Neither .env on the box sets PGDATA, so this is the path the
+      # container already runs with.
+      - PGDATA=/var/lib/postgresql/data
       - TZ
     volumes:
       - jw_postgres_data:/var/lib/postgresql/data
