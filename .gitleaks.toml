@@ -1,0 +1,11 @@
+# gitleaks config — extends the built-in ruleset, allowlists only *.example
+# templates. This repo IS the live config for a box; secret files are
+# gitignored, so a hit here means a real leak.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "*.example templates contain no real credentials"
+paths = [
+  '''.*\.example$''',
+]
