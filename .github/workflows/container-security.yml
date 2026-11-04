@@ -31,7 +31,7 @@ permissions:
 
 jobs:
   container-security:
-    uses: uppertoe/vps-base-template/.github/workflows/server-container-security.yml@b02652e2cc3b46be997f5a3ba2a914345640dc9d
+    uses: uppertoe/vps-base-template/.github/workflows/server-container-security.yml@4275da66f2922b931cc8843ac96630dc5bffcb67
     # Only the secret the shared workflow declares is passed; the repository's
     # other secrets stay out of jobs that run images from the pull request.
     secrets:

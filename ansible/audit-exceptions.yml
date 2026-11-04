@@ -1,0 +1,134 @@
+# Accepted CIS Docker section 5 exceptions for THIS deployment. The scaffold's
+# compose audit reads them as a play var, so pass the file as extra-vars:
+#
+#   ansible-playbook -i ansible/hosts scaffold/ansible/audit-all.yml \
+#     -e @ansible/audit-exceptions.yml
+#
+# CI's compose smoke test reads the same file and remaps the deploy- prefix to
+# its own project name, so a documented exception holds in both places. Each
+# entry below is an accepted gap, not a control that is met another way: it
+# names what was observed on the box and the change that would close it, so
+# the next hardening pass can work from it rather than rediscover it. Recorded
+# 2026-11-04 from apps/journal-watch/docker-compose.yml, the images' build
+# history (`docker history`) and `docker inspect`, `docker top` and
+# `docker diff` on journal-watch-vps, where the stack had run for three days.
+#
+# No uid is reserved here yet. Planka and the MJML renderer both run as uid
+# 1000 (the images' `node` account), which is also the deploy account on the
+# host, and listing 1000 would turn both into findings. Their entries below
+# record it. The Django image's `django` account is uid 100 (on the host that
+# number belongs to the dhcpcd service account, which has no login), and
+# Postgres and Redis drop to the images' own 70 and 999.
+audit_compose_forbidden_uids: []
+
+audit_compose_exceptions:
+  # ---- The network controls: one app, several containers ---------------------
+  # jw_internal carries the Django web container, the Celery worker and the
+  # MJML renderer beside the app's Postgres and Redis. jw_planka_internal
+  # carries the web container, the worker and Planka beside Planka's Postgres.
+  # The generated journal-watch_proxy carries both Caddy-reachable services,
+  # the web container and Planka, and Flower whenever its profile is on. The
+  # checker counts containers per network and has no notion of which app
+  # declared them, so it reports every container on those networks, the
+  # databases included, as sharing a network with another app. All of them are
+  # declared in apps/journal-watch/docker-compose.yml, so no second app sits
+  # on any of these networks. The one trust boundary inside the app is Planka,
+  # which is third-party code: the compose file keeps it off jw_internal, so it
+  # has no route to Django's database or Redis, and Django signs its readers in
+  # itself and takes no identity from request headers (journalwatch.caddy
+  # strips the Remote-* headers only so the access log stays honest), so a
+  # peer on jw_planka_internal cannot present an identity to it. To close: the
+  # checker would need to learn which services form one app, for which the
+  # compose file that declares them is the natural source; until it does,
+  # these entries stand.
+  #
+  # ---- read_only, non_root and healthcheck, per container --------------------
+  # journal-watch (Django under gunicorn, image uppertoe/journalwatch-app):
+  # read_only: `docker diff` after three days shows one write to the root
+  # filesystem, gunicorn's control socket at /home/django/.gunicorn/, with the
+  # image setting PYTHONDONTWRITEBYTECODE=1 and the access logs and static
+  # files on named volumes. To close: add `read_only: true` to the shared
+  # x-journal-watch-base with `tmpfs: [/tmp, /home/django/.gunicorn]`, and
+  # confirm the container stays healthy through a deploy.
+  # non_root: the image's build history ends with `USER django`, an account
+  # its Dockerfile creates with `adduser -S`, and `docker top` on the box shows
+  # gunicorn running as uid 100. The compose file declares no `user:`, and CI
+  # cannot read the USER of an image it has not pulled, so the static check
+  # reports root. To close: declare `user: django` in x-journal-watch-base,
+  # which changes nothing at runtime and lets CI read it.
+  deploy-journal-watch-1: [read_only, non_root, proxy_network_exclusive, internal_network_isolated]
+
+  # jw_celeryworker (same image as journal-watch, running celery with beat):
+  # read_only: `docker diff` shows only a multiprocessing scratch directory
+  # under /tmp. To close: the same `read_only: true` and tmpfs as the web
+  # container, applied through the shared base.
+  # non_root: as for journal-watch, the image's `USER django` (uid 100) that
+  # CI cannot read; closed by the same `user: django` declaration.
+  # healthcheck: the compose file disables it on purpose. A Celery liveness
+  # probe (`celery inspect ping`) starts a Python interpreter on every check,
+  # and this worker's children were already being OOM-killed under its old
+  # ceiling (see the mem_limit note in the compose file). Liveness is observed
+  # through the newsletters the beat schedule sends and the OOM-kill records
+  # in the journal, not by a probe. To close: a probe that fits the memory
+  # budget, for
+  # example a heartbeat file written by a scheduled task and checked with
+  # `test -f` inside its interval.
+  deploy-jw_celeryworker-1: [read_only, non_root, healthcheck, internal_network_isolated]
+
+  # jw_mjml (uppertoe/journalwatch-mjml, a Node TCP renderer):
+  # read_only: `docker diff` after three days shows no write to the root
+  # filesystem at all, so the gap is an untested change rather than a known
+  # write. To close: add `read_only: true` with `tmpfs: [/tmp]` and confirm the
+  # healthcheck still passes.
+  # The compose file declares `user: node`, which passes the non-root
+  # control, but the image's `node` account is uid 1000, the deploy account's
+  # uid on the host. To close that: rebuild the image with `node` at a uid of
+  # its own, or declare a numeric `user:` that the image's files allow.
+  deploy-jw_mjml-1: [read_only, internal_network_isolated]
+
+  # jw_planka (ghcr.io/uppertoe/kanban-gateway-signin, Planka 2.2.1 with the
+  # gateway sign-in patch):
+  # read_only: `docker diff` shows Planka writing its log to /app/logs/ and the
+  # squid helper that upstream's Dockerfile installs writing its config and
+  # pid file to /tmp. RCH's register records that Planka crash-loops under
+  # read_only without those paths writable. To close: `read_only: true` with
+  # `tmpfs: [/tmp, /app/logs]`, tested through a restart and an upload.
+  # non_root: the image's build history ends with `USER node`, created with
+  # `adduser -u 1000`, and `docker top` shows node and squid running as uid
+  # 1000, the deploy account's uid on the host. The compose file declares no
+  # `user:`, so CI cannot read the image's USER and reports root. To close:
+  # run Planka at a uid of its own, as RCH did with 10015 on 2026-11-03
+  # (declare `user:` in the compose file and chown the jw_planka_data volume
+  # to match).
+  deploy-jw_planka-1: [read_only, non_root, proxy_network_exclusive, internal_network_isolated]
+
+  # jw_postgres (postgres:17-alpine) and jw_planka_postgres (postgres:16-alpine):
+  # read_only: the entrypoint writes the socket and its lock under
+  # /run/postgresql, which is all `docker diff` shows outside the data volumes
+  # (jw_postgres's /backups is a named volume). To close: `read_only: true`
+  # with `tmpfs: [/run/postgresql, /tmp]`.
+  # non_root: the official image sets no USER; its entrypoint starts as root,
+  # fixes the data directory's ownership and drops to the postgres account,
+  # which `docker top` confirms (uid 70) and which is why the compose file
+  # adds CHOWN, DAC_OVERRIDE, FOWNER, SETUID and SETGID back. To close: declare
+  # `user: postgres` once each data volume is owned by uid 70 (it already is,
+  # since the entrypoint chowned it) and drop those five capabilities.
+  deploy-jw_postgres-1: [read_only, non_root, internal_network_isolated]
+  deploy-jw_planka_postgres-1: [read_only, non_root, internal_network_isolated]
+
+  # jw_redis (redis:7-alpine):
+  # read_only: `docker diff` shows no write to the root filesystem; the store
+  # lives on the image's anonymous /data volume. To close: `read_only: true`
+  # with `tmpfs: [/tmp]`.
+  # non_root: the official image sets no USER; its entrypoint starts as root
+  # and drops to the redis account, which `docker top` confirms (uid 999) and
+  # which is why the compose file adds SETUID and SETGID back. To close:
+  # declare `user: redis` and drop those two capabilities.
+  deploy-jw_redis-1: [read_only, non_root, internal_network_isolated]
+
+  # jw_flower runs only under the compose "flower" profile, which is not
+  # enabled on the box and not included in CI's config, so neither audit sees
+  # it today. It is the Django image again, on journal-watch_proxy and
+  # jw_internal, so the entry carries the web container's gaps for the day
+  # the profile is turned on.
+  deploy-jw_flower-1: [read_only, non_root, proxy_network_exclusive, internal_network_isolated]
