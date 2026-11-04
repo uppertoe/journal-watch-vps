@@ -1,0 +1,32 @@
+{
+  "_comment": [
+    "Intended state of the hands-off update pipeline for this server, the",
+    "parts that live outside this repository. scripts/check-update-pipeline.sh",
+    "verifies reality against this record; uppertoe/renovate-runner runs it",
+    "weekly (update-pipeline-freshness.yml there) and raises an issue here on",
+    "drift. Edit this file when the fleet or the settings change.",
+    "",
+    "External state not verifiable by script:",
+    " - Renovate is the fleet's self-hosted runner (uppertoe/renovate-runner,",
+    "   private), authenticating as the fleet GitHub App uppertoe-fleet-bot",
+    "   (id 4264803), which is installed on the uppertoe account with access",
+    "   to all repositories. The runner autodiscovered this repository on",
+    "   2026-11-03 and skipped it only because no renovate.json5 was on main;",
+    "   the config landed with the 2026-11-04 scaffold catch-up.",
+    " - The app repository, uppertoe/spanza-journal-watch, publishes",
+    "   uppertoe/journalwatch-app and uppertoe/journalwatch-mjml to Docker Hub",
+    "   from its dockerhub-images.yml workflow. It is updated by Dependabot,",
+    "   not Renovate, and carries no renovate.json, so it is not listed under",
+    "   app_repos: the check would otherwise report it as drift every week.",
+    "   Renovate picks a new image up from this repository's side, by bumping",
+    "   the digest pins in apps/journal-watch/docker-compose.yml."
+  ],
+  "server_repo": "uppertoe/journal-watch-vps",
+  "max_days_since_renovate_activity": 14,
+  "renovate_bots": ["uppertoe-fleet-bot[bot]"],
+  "renovate_runner_repo": "uppertoe/renovate-runner",
+  "app_repos": [
+    { "repo": "uppertoe/vps-base-template", "image": null, "weekly_rebuild": false },
+    { "repo": "uppertoe/renovate-runner", "image": null, "weekly_rebuild": false }
+  ]
+}

@@ -31,5 +31,8 @@ permissions:
 
 jobs:
   container-security:
-    uses: uppertoe/vps-base-template/.github/workflows/server-container-security.yml@69738796eddae8908fb6c7a71a999c817f5335f1
-    secrets: inherit
+    uses: uppertoe/vps-base-template/.github/workflows/server-container-security.yml@354b79d9f5f7b2eb1603afc8be100aef90be86cb
+    # Only the secret the shared workflow declares is passed; the repository's
+    # other secrets stay out of jobs that run images from the pull request.
+    secrets:
+      GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
