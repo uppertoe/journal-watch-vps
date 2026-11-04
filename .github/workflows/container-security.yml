@@ -1,0 +1,38 @@
+name: Container Security
+
+# Image CVE + compose misconfig scans, pulled out of the per-commit CI: both
+# scanners read only the compose files, so results only change when a compose
+# file changes. Runs on compose changes, weekly (new CVEs land against
+# unchanged pins), and on demand. The job itself lives in the scaffold
+# (scaffold/.github/workflows/server-container-security.yml).
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "apps/**/docker-compose.yml"
+      - ".github/workflows/container-security.yml"
+  pull_request:
+    paths:
+      - "apps/**/docker-compose.yml"
+      - ".github/workflows/container-security.yml"
+  schedule:
+    - cron: "37 4 * * 1"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+permissions:
+  contents: read
+  packages: read
+
+jobs:
+  container-security:
+    uses: uppertoe/vps-base-template/.github/workflows/server-container-security.yml@b02652e2cc3b46be997f5a3ba2a914345640dc9d
+    # Only the secret the shared workflow declares is passed; the repository's
+    # other secrets stay out of jobs that run images from the pull request.
+    secrets:
+      GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}

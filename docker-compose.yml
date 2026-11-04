@@ -6,7 +6,8 @@ include:
   # this host and rename apps/ntfy/ntfy.caddy.disabled -> ntfy.caddy.
   - apps/ntfy/docker-compose.yml
   - scaffold/docker/caddy.base.yml
-  - .generated/caddy/networks.yml   # rendered: per-app proxy networks (bash scaffold/docker/render-caddy-routes.sh)
+  # Rendered per-app proxy networks (bash scaffold/docker/render-caddy-routes.sh).
+  - .generated/caddy/networks.yml
   # Add one line per app:
   # - apps/myapp/docker-compose.yml
   - apps/journal-watch/docker-compose.yml

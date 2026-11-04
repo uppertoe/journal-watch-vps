@@ -27,6 +27,7 @@
 # cookie to strip, and each proxy below carries the renderer's allow marker.
 
 # Redirect www to apex
+# scaffold-lint: public -- the www name only redirects to the apex
 www.{$DOMAIN} {
     encode zstd gzip
     log {
@@ -38,20 +39,19 @@ www.{$DOMAIN} {
         format filter {
             wrap json
             fields {
-                request>uri regexp ([/=])[A-Za-z0-9_-]{16,}([/?&]|$) ${1}REDACTED${2}
-                request>headers>Referer regexp ([/=])[A-Za-z0-9_-]{16,}([/?&]|$) ${1}REDACTED${2}
-                request>headers>Hx-Current-Url regexp ([/=])[A-Za-z0-9_-]{16,}([/?&]|$) ${1}REDACTED${2}
+                request>uri regexp ([/=]|%2[Ff]|%3[Dd])(?:[A-Za-z0-9_-]{16,}([/?&]|%2[Ff]|%3[Ff]|%26|$)|[A-Za-z0-9_-]{32,}(\.[A-Za-z0-9]{1,8}(?:[/?&]|%2[Ff]|%3[Ff]|%26|$))) ${1}REDACTED${2}${3}
+                request>headers>Referer regexp ([/=]|%2[Ff]|%3[Dd])(?:[A-Za-z0-9_-]{16,}([/?&]|%2[Ff]|%3[Ff]|%26|$)|[A-Za-z0-9_-]{32,}(\.[A-Za-z0-9]{1,8}(?:[/?&]|%2[Ff]|%3[Ff]|%26|$))) ${1}REDACTED${2}${3}
+                request>headers>Hx-Current-Url regexp ([/=]|%2[Ff]|%3[Dd])(?:[A-Za-z0-9_-]{16,}([/?&]|%2[Ff]|%3[Ff]|%26|$)|[A-Za-z0-9_-]{32,}(\.[A-Za-z0-9]{1,8}(?:[/?&]|%2[Ff]|%3[Ff]|%26|$))) ${1}REDACTED${2}${3}
+                resp_headers>Location regexp ([/=]|%2[Ff]|%3[Dd])(?:[A-Za-z0-9_-]{16,}([/?&]|%2[Ff]|%3[Ff]|%26|$)|[A-Za-z0-9_-]{32,}(\.[A-Za-z0-9]{1,8}(?:[/?&]|%2[Ff]|%3[Ff]|%26|$))) ${1}REDACTED${2}${3}
             }
         }
     }
     log_append user {http.request.header.Remote-User}
-    header {
-        ?Strict-Transport-Security "max-age=31536000; includeSubDomains"
-        ?X-Content-Type-Options nosniff
-        ?Referrer-Policy strict-origin-when-cross-origin
-        ?X-Frame-Options DENY
-    }
-    @scaffold_static_hashed path_regexp \.[0-9a-f]{8,}\.(?:css|js|mjs|woff2?|ttf|otf|svg|png|jpe?g|webp|avif|gif|ico)$
+    header ?Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    header ?X-Content-Type-Options nosniff
+    header ?Referrer-Policy strict-origin-when-cross-origin
+    header ?X-Frame-Options DENY
+    @scaffold_static_hashed path_regexp (?:\.[0-9a-f]{8,}|_hu_[0-9a-f]{12,16})\.(?:css|js|mjs|woff2?|ttf|otf|svg|png|jpe?g|webp|avif|gif|ico)$
     header @scaffold_static_hashed ?Cache-Control "private, max-age=31536000, immutable"
     @scaffold_static_versioned {
         query v=*
@@ -64,6 +64,10 @@ www.{$DOMAIN} {
 
 # Journal Watch — main app
 # (Keep comments free of curly braces: the scaffold renderer counts braces.)
+# Journal Watch is a public journal club site. Readers sign in to Django
+# itself for the editorial and member pages, so the site carries no scaffold
+# guard and Caddy holds it open.
+# scaffold-lint: public -- a public site; Django signs in its own editors and members
 {$DOMAIN} {
     encode zstd gzip
     log {
@@ -75,20 +79,19 @@ www.{$DOMAIN} {
         format filter {
             wrap json
             fields {
-                request>uri regexp ([/=])[A-Za-z0-9_-]{16,}([/?&]|$) ${1}REDACTED${2}
-                request>headers>Referer regexp ([/=])[A-Za-z0-9_-]{16,}([/?&]|$) ${1}REDACTED${2}
-                request>headers>Hx-Current-Url regexp ([/=])[A-Za-z0-9_-]{16,}([/?&]|$) ${1}REDACTED${2}
+                request>uri regexp ([/=]|%2[Ff]|%3[Dd])(?:[A-Za-z0-9_-]{16,}([/?&]|%2[Ff]|%3[Ff]|%26|$)|[A-Za-z0-9_-]{32,}(\.[A-Za-z0-9]{1,8}(?:[/?&]|%2[Ff]|%3[Ff]|%26|$))) ${1}REDACTED${2}${3}
+                request>headers>Referer regexp ([/=]|%2[Ff]|%3[Dd])(?:[A-Za-z0-9_-]{16,}([/?&]|%2[Ff]|%3[Ff]|%26|$)|[A-Za-z0-9_-]{32,}(\.[A-Za-z0-9]{1,8}(?:[/?&]|%2[Ff]|%3[Ff]|%26|$))) ${1}REDACTED${2}${3}
+                request>headers>Hx-Current-Url regexp ([/=]|%2[Ff]|%3[Dd])(?:[A-Za-z0-9_-]{16,}([/?&]|%2[Ff]|%3[Ff]|%26|$)|[A-Za-z0-9_-]{32,}(\.[A-Za-z0-9]{1,8}(?:[/?&]|%2[Ff]|%3[Ff]|%26|$))) ${1}REDACTED${2}${3}
+                resp_headers>Location regexp ([/=]|%2[Ff]|%3[Dd])(?:[A-Za-z0-9_-]{16,}([/?&]|%2[Ff]|%3[Ff]|%26|$)|[A-Za-z0-9_-]{32,}(\.[A-Za-z0-9]{1,8}(?:[/?&]|%2[Ff]|%3[Ff]|%26|$))) ${1}REDACTED${2}${3}
             }
         }
     }
     log_append user {http.request.header.Remote-User}
-    header {
-        ?Strict-Transport-Security "max-age=31536000; includeSubDomains"
-        ?X-Content-Type-Options nosniff
-        ?Referrer-Policy strict-origin-when-cross-origin
-        ?X-Frame-Options DENY
-    }
-    @scaffold_static_hashed path_regexp \.[0-9a-f]{8,}\.(?:css|js|mjs|woff2?|ttf|otf|svg|png|jpe?g|webp|avif|gif|ico)$
+    header ?Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    header ?X-Content-Type-Options nosniff
+    header ?Referrer-Policy strict-origin-when-cross-origin
+    header ?X-Frame-Options DENY
+    @scaffold_static_hashed path_regexp (?:\.[0-9a-f]{8,}|_hu_[0-9a-f]{12,16})\.(?:css|js|mjs|woff2?|ttf|otf|svg|png|jpe?g|webp|avif|gif|ico)$
     header @scaffold_static_hashed ?Cache-Control "private, max-age=31536000, immutable"
     @scaffold_static_versioned {
         query v=*
@@ -182,6 +185,14 @@ www.{$DOMAIN} {
 # X-Gateway-Secret never survives, and jw_strip_client_identity drops any
 # client-sent Remote-* before the copy. Keep this comment free of curly
 # braces: the route renderer counts them.
+#
+# Access declaration for the scaffold's render lint: the forward_auth below
+# is the gate, and the renderer recognises it as one. The gate is Django's,
+# not the scaffold gateway's, so route-access.tsv lists no group or domain
+# rule for this site; who may enter is decided by may_use_planka() in the
+# app's backend/planka_gateway.py (staff and invited contributors). The
+# cover handle sits after forward_auth inside the same route block, so it
+# is reached only once the check has answered.
 planka.{$DOMAIN} {
     encode zstd gzip
     log {
@@ -193,20 +204,19 @@ planka.{$DOMAIN} {
         format filter {
             wrap json
             fields {
-                request>uri regexp ([/=])[A-Za-z0-9_-]{16,}([/?&]|$) ${1}REDACTED${2}
-                request>headers>Referer regexp ([/=])[A-Za-z0-9_-]{16,}([/?&]|$) ${1}REDACTED${2}
-                request>headers>Hx-Current-Url regexp ([/=])[A-Za-z0-9_-]{16,}([/?&]|$) ${1}REDACTED${2}
+                request>uri regexp ([/=]|%2[Ff]|%3[Dd])(?:[A-Za-z0-9_-]{16,}([/?&]|%2[Ff]|%3[Ff]|%26|$)|[A-Za-z0-9_-]{32,}(\.[A-Za-z0-9]{1,8}(?:[/?&]|%2[Ff]|%3[Ff]|%26|$))) ${1}REDACTED${2}${3}
+                request>headers>Referer regexp ([/=]|%2[Ff]|%3[Dd])(?:[A-Za-z0-9_-]{16,}([/?&]|%2[Ff]|%3[Ff]|%26|$)|[A-Za-z0-9_-]{32,}(\.[A-Za-z0-9]{1,8}(?:[/?&]|%2[Ff]|%3[Ff]|%26|$))) ${1}REDACTED${2}${3}
+                request>headers>Hx-Current-Url regexp ([/=]|%2[Ff]|%3[Dd])(?:[A-Za-z0-9_-]{16,}([/?&]|%2[Ff]|%3[Ff]|%26|$)|[A-Za-z0-9_-]{32,}(\.[A-Za-z0-9]{1,8}(?:[/?&]|%2[Ff]|%3[Ff]|%26|$))) ${1}REDACTED${2}${3}
+                resp_headers>Location regexp ([/=]|%2[Ff]|%3[Dd])(?:[A-Za-z0-9_-]{16,}([/?&]|%2[Ff]|%3[Ff]|%26|$)|[A-Za-z0-9_-]{32,}(\.[A-Za-z0-9]{1,8}(?:[/?&]|%2[Ff]|%3[Ff]|%26|$))) ${1}REDACTED${2}${3}
             }
         }
     }
     log_append user {http.request.header.Remote-User}
-    header {
-        ?Strict-Transport-Security "max-age=31536000; includeSubDomains"
-        ?X-Content-Type-Options nosniff
-        ?Referrer-Policy strict-origin-when-cross-origin
-        ?X-Frame-Options DENY
-    }
-    @scaffold_static_hashed path_regexp \.[0-9a-f]{8,}\.(?:css|js|mjs|woff2?|ttf|otf|svg|png|jpe?g|webp|avif|gif|ico)$
+    header ?Strict-Transport-Security "max-age=31536000; includeSubDomains"
+    header ?X-Content-Type-Options nosniff
+    header ?Referrer-Policy strict-origin-when-cross-origin
+    header ?X-Frame-Options DENY
+    @scaffold_static_hashed path_regexp (?:\.[0-9a-f]{8,}|_hu_[0-9a-f]{12,16})\.(?:css|js|mjs|woff2?|ttf|otf|svg|png|jpe?g|webp|avif|gif|ico)$
     header @scaffold_static_hashed ?Cache-Control "private, max-age=31536000, immutable"
     @scaffold_static_versioned {
         query v=*

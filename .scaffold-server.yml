@@ -1,0 +1,23 @@
+# Per-server choices read by the scaffold's shared CI workflows
+# (scaffold/.github/workflows/server-*.yml). Everything else about CI is the
+# same on every server; this file is the one place a server differs.
+# See scaffold/docs/14-server-tooling.md.
+
+# This server runs no scaffold sign-in gateway: Planka is gated by Django's
+# own forward_auth check (apps/journal-watch/journalwatch.caddy), and the
+# Journal Watch site signs its readers in itself. There is no apps/auth to
+# run the gateway suite against.
+gateway_chain: false
+# Unused while gateway_chain is false; kept so the key is present.
+gateway_ref: 241ea8960a2e798ac53858f59daf6cc001fd2df3
+
+# The first-party images here (journalwatch-app, journalwatch-mjml) are
+# pinned by digest but published to Docker Hub, and the provenance check
+# (scaffold/scripts/server/check-image-provenance.sh) reads only ghcr.io
+# images from the uppertoe and anaes-data-lab namespaces, so it would find
+# nothing to check here. Turn this on if the images move to GHCR.
+image_provenance: false
+
+# Secrets are still the gitignored apps/*/.env files on the box; SOPS has not
+# been adopted on this server yet (docs/13-secrets.md).
+secrets_sops: false

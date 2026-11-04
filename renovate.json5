@@ -1,0 +1,126 @@
+{
+  // Renovate config. JSON5 (comments allowed). The FIRST-PARTY list below is
+  // the one part you edit as you add your own apps.
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "labels": ["dependencies"],
+  // Recreate a digest/pin PR toward the latest even if a previous one was closed,
+  // so a one-off manual close never permanently stops updates. Top-level so it
+  // actually applies (recreateWhen is not honoured inside packageRules).
+  "recreateWhen": "always",
+  // Docker digests of moving tags carry no queryable release timestamp. The
+  // default behaviour (timestamp-required) marks such updates "pending"
+  // forever whenever a minimumReleaseAge rule applies. timestamp-optional
+  // treats a timestamp-less release as stable; timestamped releases still
+  // serve their full minimumReleaseAge.
+  "minimumReleaseAgeBehaviour": "timestamp-optional",
+  "docker": {
+    "pinDigests": true,
+  },
+  // The scaffold-managed workflow files are byte-for-byte copies that
+  // scripts/check-server-files.sh compares with the scaffold's canonical set.
+  // A digest bump Renovate makes inside one of them would fail that check as
+  // drift, so Renovate leaves them alone; they change only through a scaffold
+  // bump followed by `bash scripts/check-server-files.sh --fix`.
+  "ignorePaths": [
+    ".github/workflows/ci.yml",
+    ".github/workflows/container-security.yml",
+    ".github/workflows/secret-scan.yml",
+    ".github/workflows/deploy-ping.yml",
+    ".github/workflows/digest-freshness.yml",
+    ".github/workflows/maintenance-day.yml",
+    ".github/workflows/codeql.yml",
+    ".github/workflows/scorecard.yml",
+    ".github/workflows/update-pipeline-freshness.yml",
+  ],
+  // Registry credential for PRIVATE first-party images lives in the
+  // self-hosted runner's configuration (uppertoe/renovate-runner), not here.
+  "packageRules": [
+    // ── THIRD-PARTY images ──────────────────────────────────────────────
+    // Pin and group digest bumps, and hold them for a 3-day cooldown before
+    // automerge, so an upstream we do not control can settle first. The
+    // FIRST-PARTY rule further down overrides this for our own images.
+    {
+      "description": "Regex-managed digest pins ride the same automerge+cooldown as compose pins",
+      "matchManagers": ["custom.regex"],
+      "matchUpdateTypes": ["digest", "pin", "pinDigest"],
+      "groupName": "docker image digests",
+      "minimumReleaseAge": "3 days",
+      "automerge": true,
+    },
+    {
+      "description": "Group Docker image digest bumps so base-image CVE fixes flow through in one PR",
+      "matchManagers": ["docker-compose", "dockerfile"],
+      "matchUpdateTypes": ["digest", "pin", "pinDigest"],
+      "groupName": "docker image digests",
+      "minimumReleaseAge": "3 days",
+      "automerge": true,
+    },
+
+    // ── FIRST-PARTY apps, no cooldown ───────────────────────────────────
+    // Our own images are gated by their own repository's CI before they
+    // publish, so there is nothing to let settle. A match here wins over the
+    // 3-day rules above (later rules override earlier ones).
+    //
+    //   Edit this list when you deploy a new app of your own. Each entry is a
+    //   Renovate package-name glob:
+    //     "ghcr.io/<you>/**"  a whole registry namespace
+    //     "**/<app-name>"     one named app, wherever it is hosted
+    {
+      "description": "First-party app images update immediately (skip the third-party cooldown)",
+      "matchDatasources": ["docker"],
+      "matchPackageNames": [
+        "ghcr.io/uppertoe/**", // our GHCR namespace (kanban-gateway-signin)
+        // Docker Hub names carry no registry prefix, so these are the exact
+        // package names Renovate sees for the two images the app repository
+        // (spanza-journal-watch) publishes.
+        "uppertoe/journalwatch-app",
+        "uppertoe/journalwatch-mjml",
+      ],
+      "matchUpdateTypes": ["digest", "pin", "pinDigest"],
+      "minimumReleaseAge": "0 days",
+      // Own group, not the shared "docker image digests" one: a grouped PR
+      // only automerges when every member's status is green, so a first-party
+      // fix would otherwise wait behind a third-party digest still serving its
+      // 3-day stability window.
+      "groupName": "first-party image digests",
+      "automerge": true,
+    },
+
+    {
+      "description": "Scaffold submodule bumps: automerge once repo CI proves the merged stack boots",
+      "matchManagers": ["git-submodules"],
+      "automerge": true,
+      // A pointer bump moves only the submodule. Three workflow callers embed
+      // the scaffold commit and the shims must match the canonical copies, so
+      // the drift check (scripts/check-server-files.sh) would fail the bump.
+      // Run its fix mode in the branch so the PR carries the rewritten files;
+      // the command is allowlisted in the fleet runner's config.js.
+      "postUpgradeTasks": {
+        "commands": ["bash scripts/check-server-files.sh --fix"],
+        "fileFilters": ["**/*"],
+        "executionMode": "branch",
+      },
+    },
+    {
+      "description": "Automerge action pin/digest updates; version bumps stay manual",
+      "matchManagers": ["github-actions"],
+      "matchUpdateTypes": ["digest", "pin", "pinDigest"],
+      "automerge": true,
+    },
+  ],
+  "git-submodules": {
+    "enabled": true,
+  },
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Digest-pinned scanner images in workflow docker-run lines",
+      "managerFilePatterns": ["/^\\.github/workflows/.+\\.ya?ml$/"],
+      "matchStrings": [
+        "(?<depName>[a-z0-9][a-z0-9._/-]*?):(?<currentValue>[a-zA-Z0-9][a-zA-Z0-9._-]*)@(?<currentDigest>sha256:[a-f0-9]{64})",
+      ],
+      "datasourceTemplate": "docker",
+    },
+  ],
+}
