@@ -11,9 +11,11 @@ gateway_chain: false
 # Unused while gateway_chain is false; kept so the key is present.
 gateway_ref: 241ea8960a2e798ac53858f59daf6cc001fd2df3
 
-# The first-party images here (journalwatch-app, journalwatch-mjml on Docker
-# Hub) are not yet pinned by digest, so there is no digest whose provenance
-# could be checked. Turn this on when the pins land.
+# The first-party images here (journalwatch-app, journalwatch-mjml) are
+# pinned by digest but published to Docker Hub, and the provenance check
+# (scaffold/scripts/server/check-image-provenance.sh) reads only ghcr.io
+# images from the uppertoe and anaes-data-lab namespaces, so it would find
+# nothing to check here. Turn this on if the images move to GHCR.
 image_provenance: false
 
 # Secrets are still the gitignored apps/*/.env files on the box; SOPS has not

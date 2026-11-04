@@ -52,7 +52,7 @@ volumes:
 # service itself keeps `journal-watch:` a bare key, which the scaffold renderer
 # greps for when wiring proxy networks.
 x-journal-watch-base: &journal_watch_base
-  image: ${JW_DOCKERHUB_NAMESPACE}/journalwatch-app:${JW_APP_TAG:-latest}
+  image: uppertoe/journalwatch-app:latest@sha256:dc9925c954d8b4379883cb2a347dc8a217d9393ae420a58fc2d78c697c347610
   restart: unless-stopped
   mem_reservation: 256m
   mem_limit: 700m
@@ -261,7 +261,7 @@ services:
   # MJML TCP server (email template rendering)
   # ---------------------------------------------------------------------------
   jw_mjml:
-    image: ${JW_DOCKERHUB_NAMESPACE}/journalwatch-mjml:${JW_APP_TAG:-latest}
+    image: uppertoe/journalwatch-mjml:latest@sha256:2801c9cbffd085cb52a5ad48936bee30be0650d66b6187a30c718ceb4f87f4fe
     restart: unless-stopped
     # Renders newsletter email for the Celery worker; nobody waits on it in a
     # browser, so it sits in the batch tier beside the worker.

@@ -71,8 +71,11 @@
       "matchDatasources": ["docker"],
       "matchPackageNames": [
         "ghcr.io/uppertoe/**", // our GHCR namespace (kanban-gateway-signin)
-        "**/journalwatch-app", // the Django image, published to Docker Hub by the app repository
-        "**/journalwatch-mjml", // the MJML renderer, published alongside it
+        // Docker Hub names carry no registry prefix, so these are the exact
+        // package names Renovate sees for the two images the app repository
+        // (spanza-journal-watch) publishes.
+        "uppertoe/journalwatch-app",
+        "uppertoe/journalwatch-mjml",
       ],
       "matchUpdateTypes": ["digest", "pin", "pinDigest"],
       "minimumReleaseAge": "0 days",
