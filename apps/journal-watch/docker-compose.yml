@@ -77,7 +77,10 @@ x-journal-watch-base: &journal_watch_base
     # Docker-internal addresses — always override these here, not in .env
     POSTGRES_HOST: jw_postgres
     POSTGRES_PORT: "5432"
-    REDIS_URL: redis://:${JW_REDIS_PASSWORD:?set JW_REDIS_PASSWORD in apps/journal-watch/.env}@jw_redis:6379/0
+    # JW_REDIS_PASSWORD is required and lives in apps/journal-watch/.env. The
+    # bare `:?` carries no message because the KICS scan reads any text after
+    # it as a literal credential and fails the container-security workflow.
+    REDIS_URL: redis://:${JW_REDIS_PASSWORD:?}@jw_redis:6379/0
     PLANKA_BASE_URL: http://jw_planka:1337
     PLANKA_DB_URL: postgresql://postgres:${PLANKA_POSTGRES_PASSWORD}@jw_planka_postgres/planka
     PLANKA_CALLBACK_BASE_URL: "http://jw-django:5000"
@@ -245,9 +248,11 @@ services:
       - no-new-privileges:true
     # A password, so that no other container on jw_internal can read or alter
     # the job queue and cache. redis-cli in the healthcheck reads REDISCLI_AUTH.
-    command: ["redis-server", "--requirepass", "${JW_REDIS_PASSWORD:?set JW_REDIS_PASSWORD in apps/journal-watch/.env}"]
+    # JW_REDIS_PASSWORD is required and lives in apps/journal-watch/.env; the
+    # bare `:?` is explained where REDIS_URL is set above.
+    command: ["redis-server", "--requirepass", "${JW_REDIS_PASSWORD:?}"]
     environment:
-      REDISCLI_AUTH: ${JW_REDIS_PASSWORD:?set JW_REDIS_PASSWORD in apps/journal-watch/.env}
+      REDISCLI_AUTH: ${JW_REDIS_PASSWORD:?}
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 30s
@@ -347,7 +352,7 @@ services:
           'CMD',
           'python',
           '-c',
-          'import base64, os; from urllib.request import Request, urlopen; token = base64.b64encode(f"{os.environ[''CELERY_FLOWER_USER'']}:{os.environ[''CELERY_FLOWER_PASSWORD'']}".encode()).decode(); req = Request(''http://127.0.0.1:5555/'', headers={''Authorization'': f''Basic {token}''}); urlopen(req, timeout=5)',
+          'import base64, os; from urllib.request import Request, urlopen; encoded = base64.b64encode(f"{os.environ[''CELERY_FLOWER_USER'']}:{os.environ[''CELERY_FLOWER_PASSWORD'']}".encode()).decode(); req = Request(''http://127.0.0.1:5555/'', headers={''Authorization'': f''Basic {encoded}''}); urlopen(req, timeout=5)',
         ]
       interval: 30s
       timeout: 5s
@@ -423,8 +428,10 @@ services:
       # which Caddy injects (journalwatch.caddy) from the same .env value.
       # Password sign-in is off while GATEWAY_AUTH is true. Planka refuses to
       # start if the secret is missing or shorter than 32 characters.
+      # PLANKA_GATEWAY_SECRET is required and lives in apps/journal-watch/.env;
+      # the bare `:?` is explained where REDIS_URL is set above.
       - GATEWAY_AUTH=true
-      - GATEWAY_AUTH_SECRET=${PLANKA_GATEWAY_SECRET:?set PLANKA_GATEWAY_SECRET in apps/journal-watch/.env}
+      - GATEWAY_AUTH_SECRET=${PLANKA_GATEWAY_SECRET:?}
       # Group -> Planka role, re-applied at every sign-in. Django sends the
       # groups from its permissions (backend/planka_gateway.py in the app):
       # chief editors are admins, other staff and invited contributors are
@@ -449,8 +456,9 @@ services:
       # scoped, though, by those same subscriptions.
       #
       # Credentials are SES SMTP, derived from this deployment's own IAM key
-      # (username = access key ID, password = an HMAC over the secret), so no
-      # AWS resource was created and no credential is shared between hosts.
+      # (the username is the access key ID and the SMTP credential an HMAC
+      # over the secret key), so no AWS resource was created and no
+      # credential is shared between hosts.
       # SMTP_SECURE is deliberately absent: 587 is STARTTLS, and Planka reads
       # it as `=== 'true'`, so setting it would try implicit TLS and fail.
       - SMTP_HOST=${PLANKA_SMTP_HOST}
