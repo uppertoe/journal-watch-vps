@@ -26,7 +26,6 @@
   "renovate_bots": ["uppertoe-fleet-bot[bot]"],
   "renovate_runner_repo": "uppertoe/renovate-runner",
   "app_repos": [
-    { "repo": "uppertoe/vps-base-template", "image": null, "weekly_rebuild": false },
-    { "repo": "uppertoe/renovate-runner", "image": null, "weekly_rebuild": false }
+    { "repo": "uppertoe/vps-base-template", "image": null, "weekly_rebuild": false }
   ]
 }
