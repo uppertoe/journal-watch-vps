@@ -235,7 +235,7 @@ services:
   # ---------------------------------------------------------------------------
   jw_redis:
     # Pinned to the digest already running.
-    image: redis:7-alpine@sha256:c5d34a98396a4775e223c74e929162c35c5a2182901ba26b50ade939941ce14b
+    image: redis:8-alpine@sha256:7958cfbb9d152f87dadfbc89f1b0b15938f0b81ff8982feb327476f4911935c3
     restart: unless-stopped
     cgroup_parent: vps-data.slice
     mem_limit: 128m
