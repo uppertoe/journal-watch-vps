@@ -147,7 +147,7 @@ services:
   jw_postgres:
     # Pinned to the digest that has been running here, so this is a pin and not
     # an upgrade. Bump deliberately.
-    image: postgres:17-alpine@sha256:a77aa70e641402a21411b92b721c58d10f23b50ae5fdd2333efd22d166e1e5f7
+    image: postgres:18-alpine@sha256:ff64c9e3bdf8e2120107d3559de8db314e8305f7e38c5105903c6295876738ff
     restart: unless-stopped
     # Databases belong in the data tier, which may swap and sits under the
     # estate's shared ceiling (scaffold/docs/04-server-repo.md, Memory tiers).
@@ -495,7 +495,7 @@ services:
     # Pinned to the digest already running. Planka's own image is pinned to
     # 2.1.0 below and must stay there; this is its database, pinned for the
     # same reason - no silent major-version change under a live data volume.
-    image: postgres:16-alpine@sha256:81e77a4833487b8132fe4b00bedd39dc3f74b8641e387f19312a48f7de218c2e
+    image: postgres:18-alpine@sha256:ff64c9e3bdf8e2120107d3559de8db314e8305f7e38c5105903c6295876738ff
     restart: unless-stopped
     cgroup_parent: vps-data.slice
     oom_score_adj: -400
