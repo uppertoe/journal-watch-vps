@@ -52,7 +52,7 @@ volumes:
 # service itself keeps `journal-watch:` a bare key, which the scaffold renderer
 # greps for when wiring proxy networks.
 x-journal-watch-base: &journal_watch_base
-  image: uppertoe/journalwatch-app:latest@sha256:bbe6397865d265adf8d7f93ff548158bc49b97bb5fb0e805e0e2daddbc2d74f4
+  image: uppertoe/journalwatch-app:latest@sha256:dbefd76e95483045512b92a1649d4744f4bbd5fbc10fe98583aa1f95b8cf48d0
   restart: unless-stopped
   mem_reservation: 256m
   mem_limit: 700m
