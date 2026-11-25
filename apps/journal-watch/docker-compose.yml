@@ -470,6 +470,10 @@ services:
       - SMTP_USER=${PLANKA_SMTP_USER}
       - SMTP_PASSWORD=${PLANKA_SMTP_PASSWORD}
       - SMTP_FROM=${PLANKA_SMTP_FROM}
+      # Branded notification emails (the fork's GATEWAY.md): the name in the
+      # header and footer, and the newsletter's navy for the button.
+      - EMAIL_BRAND_NAME=Journal Watch
+      - EMAIL_ACCENT_COLOR=#1e4468
     volumes:
       - ./planka/custom:/app/terms/custom:ro
     healthcheck:
