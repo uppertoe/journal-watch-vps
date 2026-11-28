@@ -25,13 +25,17 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
+# pull-requests and checks: read let the scan see that a merge to main was
+# already scanned in its pull request.
 permissions:
   contents: read
   packages: read
+  pull-requests: read
+  checks: read
 
 jobs:
   container-security:
-    uses: uppertoe/vps-base-template/.github/workflows/server-container-security.yml@4275da66f2922b931cc8843ac96630dc5bffcb67
+    uses: uppertoe/vps-base-template/.github/workflows/server-container-security.yml@e96d3178a27225752b7499d664d08cae4aa9b50c
     # Only the secret the shared workflow declares is passed; the repository's
     # other secrets stay out of jobs that run images from the pull request.
     secrets:
